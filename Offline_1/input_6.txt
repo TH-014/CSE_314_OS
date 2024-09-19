@@ -1,0 +1,11 @@
+true
+zip
+c cpp
+100
+5
+/home/tanvir014/Class_Mat/CSE_314/Offlines/Offline_1/test-cases/6/input/submissions
+2005001 2005010
+/home/tanvir014/Class_Mat/CSE_314/Offlines/Offline_1/test-cases/6/input/submissions/expected_output.txt
+10
+/home/tanvir014/Class_Mat/CSE_314/Offlines/Offline_1/test-cases/6/input/plagiarism.txt
+100

@@ -205,15 +205,19 @@ match_output()
 {
     local diff=0
     local output_file=$1
-    # echo "ID: $id, output_file: $output_file"
+    # echo "ID: $id, output_file: $output_file" >> log.txt
+    if [ ! -f "$output_file" ]; then
+        return -1
+    fi
 
     for line in "${expected_output_content[@]}"; do
-        local isfound=$(cat "$output_file" | grep -c "$line")
+        local isfound=$(cat "$output_file" | grep -c "^${line}$")
+        # echo "$line -> $isfound" >> log.txt
         if [ $isfound -eq 0 ]; then
             diff=$((diff+1))
         fi
     done
-    # echo "$diff"
+    # echo "$diff" >> log.txt
     return $diff
 }
 
@@ -310,3 +314,5 @@ for ((id=start_id; id<=end_id; id++)); do
     echo "$id,$marks,$deducted,$total,$remarks" >> marks.csv
 
 done
+
+rm -rf temporary
