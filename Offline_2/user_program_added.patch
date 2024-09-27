@@ -1,0 +1,52 @@
+diff --git a/Makefile b/Makefile
+index 62fd0f8..671a161 100644
+--- a/Makefile
++++ b/Makefile
+@@ -139,6 +139,7 @@ UPROGS=\
+ 	$U/_grind\
+ 	$U/_wc\
+ 	$U/_zombie\
++	$U/_square\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+diff --git a/user/a.out b/user/a.out
+new file mode 100755
+index 0000000..c062f80
+Binary files /dev/null and b/user/a.out differ
+diff --git a/user/square.c b/user/square.c
+new file mode 100644
+index 0000000..cf681f4
+--- /dev/null
++++ b/user/square.c
+@@ -0,0 +1,13 @@
++#include "kernel/types.h"
++#include "user/user.h"
++
++int main(int argc, char **argv){
++    char *s; 
++    s = malloc(10);
++    gets(s, 9);
++    int num = atoi(s);
++    // printf("the input is : %s", s);
++    printf("%d * %d = %d\n", num, num, num * num);
++    printf("hello world!\n");
++    return 0; 
++}
+\ No newline at end of file
+diff --git a/user/square_ubuntu.c b/user/square_ubuntu.c
+new file mode 100644
+index 0000000..3cf29eb
+--- /dev/null
++++ b/user/square_ubuntu.c
+@@ -0,0 +1,9 @@
++#include <stdio.h>
++
++int main(){
++    int num; 
++    scanf("%d", &num);
++    
++    printf("%d * %d = %d\n", num, num, num * num);
++    return 0; 
++}
+\ No newline at end of file
