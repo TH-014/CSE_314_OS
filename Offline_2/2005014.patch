@@ -22,7 +22,7 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..5055872 100644
+index ed65409..3d754e5 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
 @@ -101,6 +101,7 @@ extern uint64 sys_unlink(void);
@@ -33,13 +33,13 @@ index ed65409..5055872 100644
  
  // An array mapping syscall numbers from syscall.h
  // to the function that handles the system call.
-@@ -126,6 +127,32 @@ static uint64 (*syscalls[])(void) = {
+@@ -126,8 +127,102 @@ static uint64 (*syscalls[])(void) = {
  [SYS_link]    sys_link,
  [SYS_mkdir]   sys_mkdir,
  [SYS_close]   sys_close,
 +[SYS_trace]   sys_trace,
-+};
-+
+ };
+ 
 +const char *syscallnames[] = {
 +  [SYS_fork]    = "fork",
 +  [SYS_exit]    = "exit",
@@ -63,16 +63,95 @@ index ed65409..5055872 100644
 +  [SYS_mkdir]   = "mkdir",
 +  [SYS_close]   = "close",
 +  [SYS_trace]   = "trace",
- };
- 
++};
++
++int num_syscalls = NELEM(syscalls);
++
++void print_syscall_args(int num) {
++	uint64 a0 = argraw(0);
++	uint64 a1 = argraw(1);
++	uint64 a2 = argraw(2);
++	char str[101];
++	switch (num)
++	{
++	case SYS_exit:
++	case SYS_close:
++	case SYS_kill:
++	case SYS_dup:
++	case SYS_sbrk:
++	case SYS_sleep:
++	case SYS_trace:
++		printf("%d", (int) a0);
++		break;
++
++	case SYS_wait:
++	case SYS_pipe:
++		printf("%p", (int *) a0);
++		break;
++
++	case SYS_unlink:
++	case SYS_mkdir:
++	case SYS_chdir:
++		argstr(0, str, 100);
++		printf("%s", str);
++		break;
++
++	case SYS_read:
++	case SYS_write:
++		printf("%d, %p, %d", (int) a0, (void *) a1, (int) a2);
++		break;
++
++	case SYS_exec:
++		argstr(0, str, 100);
++		printf("%s, %p", str, (char **) a1);
++		break;
++
++	case SYS_open:
++		argstr(0, str, 100);
++		printf("%s, %d", str, (int) a1);
++		break;
++	
++	case SYS_mknod:
++		argstr(0, str, 100);
++		printf("%s, %hd, %hd", str, (short) a1, (short) a2);
++		break;
++
++	case SYS_fstat:
++		printf("%d, %p", (int) a0, (void *) a1);
++		break;
++
++	case SYS_link:
++		argstr(0, str, 100);
++		printf("%s, ", str);
++		argstr(1, str, 100);
++		printf("%s", str);
++		break;
++
++	default:
++		printf("unknown syscall\n\n");
++		break;
++	}
++}
++
  void
-@@ -139,6 +166,10 @@ syscall(void)
+ syscall(void)
+ {
+@@ -138,7 +233,19 @@ syscall(void)
+   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
      // Use num to lookup the system call function for num, call it,
      // and store its return value in p->trapframe->a0
++	if(p->trace_syscall_number == num) {
++		printf("pid: %d, syscall: %s, args: (", p->pid, syscallnames[num]);
++		print_syscall_args(num);
++		printf("), return: ");
++		if(num == SYS_exit)
++			printf("%d\n", (int) p->trapframe->a0);
++	}
++	if(num == SYS_exit)
++		p->trace_syscall_number = 0;
      p->trapframe->a0 = syscalls[num]();
 +    if(p->trace_syscall_number == num) {
-+      printf("pid: %d, syscall: %s, args: , return: %d\n", p->pid, syscallnames[num], (int) p->trapframe->a0);
-+      p->trace_syscall_number = 0;
++		printf("%d\n", (int) p->trapframe->a0);
 +    }
    } else {
      printf("%d %s: unknown sys call %d\n",
@@ -88,19 +167,24 @@ index bc5f356..fc22b30 100644
 +#define SYS_trace  22
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..1133b6e 100644
+index 3b4d5bd..a2e2b61 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,13 @@ sys_uptime(void)
+@@ -91,3 +91,18 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
++
++extern int num_syscalls;
 +
 +uint64
 +sys_trace(void)
 +{
 +  int syscall_number;
 +  argint(0, &syscall_number);
++  if(syscall_number < 0 || syscall_number >= num_syscalls) {
++    return -1;
++  }
 +  struct proc *p = myproc();
 +  p->trace_syscall_number = syscall_number;
 +  return 0;
