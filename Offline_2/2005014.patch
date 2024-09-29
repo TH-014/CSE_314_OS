@@ -1,9 +1,9 @@
 diff --git a/.vscode/settings.json b/.vscode/settings.json
 new file mode 100644
-index 0000000..f9918bf
+index 0000000..a27f29c
 --- /dev/null
 +++ b/.vscode/settings.json
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,13 @@
 +{
 +    "files.associations": {
 +        "types.h": "c",
@@ -12,7 +12,9 @@ index 0000000..f9918bf
 +        "param.h": "c",
 +        "fcntl.h": "c",
 +        "spinlock.h": "c",
-+        "defs.h": "c"
++        "defs.h": "c",
++        "proc.h": "c",
++        "memlayout.h": "c"
 +    }
 +}
 \ No newline at end of file
@@ -36,6 +38,17 @@ index 62fd0f8..9f78f91 100644
  	$U/_usertests\
  	$U/_grind\
  	$U/_wc\
+diff --git a/kernel/param.h b/kernel/param.h
+index 6624bff..fbc84e4 100644
+--- a/kernel/param.h
++++ b/kernel/param.h
+@@ -11,3 +11,5 @@
+ #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
+ #define FSSIZE       2000  // size of file system in blocks
+ #define MAXPATH      128   // maximum file path name
++#define MAXCMDLEN      100    // maximum Shell command length
++#define MAXHIST        10    // maximum history length
+\ No newline at end of file
 diff --git a/kernel/proc.h b/kernel/proc.h
 index d021857..acd416e 100644
 --- a/kernel/proc.h
@@ -48,26 +61,30 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..6ff2c73 100644
+index ed65409..a6c76ff 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
-@@ -101,6 +101,9 @@ extern uint64 sys_unlink(void);
+@@ -101,6 +101,11 @@ extern uint64 sys_unlink(void);
  extern uint64 sys_link(void);
  extern uint64 sys_mkdir(void);
  extern uint64 sys_close(void);
 +extern uint64 sys_trace(void);
 +extern uint64 sys_info(void);
 +extern uint64 sys_sync_print(void);
++extern uint64 sys_set_history(void);
++extern uint64 sys_get_history(void);
  
  // An array mapping syscall numbers from syscall.h
  // to the function that handles the system call.
-@@ -126,8 +129,111 @@ static uint64 (*syscalls[])(void) = {
+@@ -126,8 +131,120 @@ static uint64 (*syscalls[])(void) = {
  [SYS_link]    sys_link,
  [SYS_mkdir]   sys_mkdir,
  [SYS_close]   sys_close,
 +[SYS_trace]   sys_trace,
 +[SYS_info]    sys_info,
-+[SYS_sync_print] sys_sync_print
++[SYS_sync_print] sys_sync_print,
++[SYS_set_history] sys_set_history,
++[SYS_get_history] sys_get_history
  };
  
 +const char *syscallnames[] = {
@@ -94,7 +111,9 @@ index ed65409..6ff2c73 100644
 +  [SYS_close]   = "close",
 +  [SYS_trace]   = "trace",
 +  [SYS_info]    = "info",
-+  [SYS_sync_print] = "sync_print"
++  [SYS_sync_print] = "sync_print",
++  [SYS_set_history] = "set_history",
++  [SYS_get_history] = "get_history"
 +};
 +
 +int num_syscalls = NELEM(syscalls);
@@ -125,9 +144,14 @@ index ed65409..6ff2c73 100644
 +	case SYS_mkdir:
 +	case SYS_chdir:
 +  case SYS_sync_print:
++  case SYS_set_history:
 +		argstr(0, str, 100);
 +		printf("%s", str);
 +		break;
++
++  case SYS_get_history:
++    printf("%d, %p", (int) a0, (char *) a1);
++    break;
 +
 +	case SYS_read:
 +	case SYS_write:
@@ -173,7 +197,7 @@ index ed65409..6ff2c73 100644
  void
  syscall(void)
  {
-@@ -138,7 +244,19 @@ syscall(void)
+@@ -138,7 +255,19 @@ syscall(void)
    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
      // Use num to lookup the system call function for num, call it,
      // and store its return value in p->trapframe->a0
@@ -194,22 +218,24 @@ index ed65409..6ff2c73 100644
      printf("%d %s: unknown sys call %d\n",
              p->pid, p->name, num);
 diff --git a/kernel/syscall.h b/kernel/syscall.h
-index bc5f356..04883b6 100644
+index bc5f356..e8ced89 100644
 --- a/kernel/syscall.h
 +++ b/kernel/syscall.h
-@@ -20,3 +20,6 @@
+@@ -20,3 +20,8 @@
  #define SYS_link   19
  #define SYS_mkdir  20
  #define SYS_close  21
 +#define SYS_trace  22
 +#define SYS_info   23
 +#define SYS_sync_print 24
++#define SYS_set_history 25
++#define SYS_get_history 26
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..e612ddb 100644
+index 3b4d5bd..c1b2dad 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,68 @@ sys_uptime(void)
+@@ -91,3 +91,107 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
@@ -276,6 +302,45 @@ index 3b4d5bd..e612ddb 100644
 +	acquire(&print_lock);
 +	printf("%s\n", str);
 +	release(&print_lock);
++	return 0;
++}
++
++char history[MAXHIST][MAXCMDLEN];
++int history_count = 0, history_index = 0;
++
++uint64
++sys_set_history(void)
++{
++	char str[MAXCMDLEN];
++	argstr(0, str, MAXCMDLEN);
++	// printf("<KERNEL> set_history: %s\n", str);
++	for(int i=0; i<MAXCMDLEN; i++) {
++		history[history_index][i] = str[i];
++		if(str[i] == 0) break;
++	}
++	history_index = (history_index + 1) % MAXHIST;
++	if(history_count < MAXHIST) {
++		history_count++;
++	}
++	return 0;
++}
++
++uint64
++sys_get_history(void)
++{
++	int index;
++	argint(0, &index);
++	char *addr;
++	argaddr(1, (uint64 *)&addr);
++	// printf("<KERNEL get> index: %d, pointer: %p\n", index, addr);
++	if(index < 0 || index > history_count) {
++		return -1;
++	}
++	char *str = history[((history_index - index + MAXHIST) % MAXHIST)];
++	// printf("<KERNEL> get_history: %s\n", str);
++	if(copyout(myproc()->pagetable, (uint64) addr, str, strlen(str) + 1) < 0) {
++		return -1;
++	}
 +	return 0;
 +}
 \ No newline at end of file
@@ -367,6 +432,49 @@ index 0000000..2d1fe48
 +    exit(0);
 +}
 \ No newline at end of file
+diff --git a/user/sh.c b/user/sh.c
+index 836ebcb..ccb0cfe 100644
+--- a/user/sh.c
++++ b/user/sh.c
+@@ -12,6 +12,7 @@
+ #define BACK  5
+ 
+ #define MAXARGS 10
++#define MAXCMDLEN 100
+ 
+ struct cmd {
+   int type;
+@@ -163,10 +164,29 @@ main(void)
+       buf[strlen(buf)-1] = 0;  // chop \n
+       if(chdir(buf+3) < 0)
+         fprintf(2, "cannot cd %s\n", buf+3);
++	  set_history(buf);
+       continue;
+     }
+     if(fork1() == 0)
+-      runcmd(parsecmd(buf));
++	{
++		if(buf[0]=='!' && buf[1]=='!')
++		{
++			//get command from kernel
++			int index = 1;
++			if(buf[2] != '\n')
++				index = atoi(buf+3);
++			char *str = (char *) malloc(MAXCMDLEN*sizeof(char));
++			if(get_history(index, str) < 0)
++			{
++				printf("No commands in history\n");
++				exit(0);
++			}
++			printf("%s", str);
++			strcpy(buf, str);
++		}
++		set_history(buf);
++		runcmd(parsecmd(buf));
++	}
+     wait(0);
+   }
+   exit(0);
 diff --git a/user/trace.c b/user/trace.c
 new file mode 100644
 index 0000000..1e322ce
@@ -456,7 +564,7 @@ index c7b66c4..f25250b 100644
  memmove(void *vdst, const void *vsrc, int n)
  {
 diff --git a/user/user.h b/user/user.h
-index 04013ca..5796573 100644
+index 04013ca..6a54339 100644
 --- a/user/user.h
 +++ b/user/user.h
 @@ -1,4 +1,5 @@
@@ -465,17 +573,19 @@ index 04013ca..5796573 100644
  
  // system calls
  int fork(void);
-@@ -22,6 +23,9 @@ int getpid(void);
+@@ -22,6 +23,11 @@ int getpid(void);
  char* sbrk(int);
  int sleep(int);
  int uptime(void);
 +int trace(int);
 +int info(struct procInfo*);
 +int sync_print(const char*);
++int set_history(const char*);
++int get_history(int, char*);
  
  // ulib.c
  int stat(const char*, struct stat*);
-@@ -37,5 +41,9 @@ void* memset(void*, int, uint);
+@@ -37,5 +43,9 @@ void* memset(void*, int, uint);
  void* malloc(uint);
  void free(void*);
  int atoi(const char*);
@@ -486,14 +596,16 @@ index 04013ca..5796573 100644
  int memcmp(const void *, const void *, uint);
  void *memcpy(void *, const void *, uint);
 diff --git a/user/usys.pl b/user/usys.pl
-index 01e426e..9980bf8 100755
+index 01e426e..c435df8 100755
 --- a/user/usys.pl
 +++ b/user/usys.pl
-@@ -36,3 +36,6 @@ entry("getpid");
+@@ -36,3 +36,8 @@ entry("getpid");
  entry("sbrk");
  entry("sleep");
  entry("uptime");
 +entry("trace");
 +entry("info");
 +entry("sync_print");
++entry("set_history");
++entry("get_history");
 \ No newline at end of file
