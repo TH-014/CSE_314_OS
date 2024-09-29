@@ -48,24 +48,26 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..e176b31 100644
+index ed65409..6ff2c73 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
-@@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
+@@ -101,6 +101,9 @@ extern uint64 sys_unlink(void);
  extern uint64 sys_link(void);
  extern uint64 sys_mkdir(void);
  extern uint64 sys_close(void);
 +extern uint64 sys_trace(void);
 +extern uint64 sys_info(void);
++extern uint64 sys_sync_print(void);
  
  // An array mapping syscall numbers from syscall.h
  // to the function that handles the system call.
-@@ -126,8 +128,108 @@ static uint64 (*syscalls[])(void) = {
+@@ -126,8 +129,111 @@ static uint64 (*syscalls[])(void) = {
  [SYS_link]    sys_link,
  [SYS_mkdir]   sys_mkdir,
  [SYS_close]   sys_close,
 +[SYS_trace]   sys_trace,
-+[SYS_info]    sys_info
++[SYS_info]    sys_info,
++[SYS_sync_print] sys_sync_print
  };
  
 +const char *syscallnames[] = {
@@ -91,7 +93,8 @@ index ed65409..e176b31 100644
 +  [SYS_mkdir]   = "mkdir",
 +  [SYS_close]   = "close",
 +  [SYS_trace]   = "trace",
-+  [SYS_info]    = "info"
++  [SYS_info]    = "info",
++  [SYS_sync_print] = "sync_print"
 +};
 +
 +int num_syscalls = NELEM(syscalls);
@@ -121,6 +124,7 @@ index ed65409..e176b31 100644
 +	case SYS_unlink:
 +	case SYS_mkdir:
 +	case SYS_chdir:
++  case SYS_sync_print:
 +		argstr(0, str, 100);
 +		printf("%s", str);
 +		break;
@@ -169,7 +173,7 @@ index ed65409..e176b31 100644
  void
  syscall(void)
  {
-@@ -138,7 +240,19 @@ syscall(void)
+@@ -138,7 +244,19 @@ syscall(void)
    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
      // Use num to lookup the system call function for num, call it,
      // and store its return value in p->trapframe->a0
@@ -190,21 +194,22 @@ index ed65409..e176b31 100644
      printf("%d %s: unknown sys call %d\n",
              p->pid, p->name, num);
 diff --git a/kernel/syscall.h b/kernel/syscall.h
-index bc5f356..35d3b1b 100644
+index bc5f356..04883b6 100644
 --- a/kernel/syscall.h
 +++ b/kernel/syscall.h
-@@ -20,3 +20,5 @@
+@@ -20,3 +20,6 @@
  #define SYS_link   19
  #define SYS_mkdir  20
  #define SYS_close  21
 +#define SYS_trace  22
 +#define SYS_info   23
++#define SYS_sync_print 24
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..243306b 100644
+index 3b4d5bd..e612ddb 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,55 @@ sys_uptime(void)
+@@ -91,3 +91,68 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
@@ -260,13 +265,26 @@ index 3b4d5bd..243306b 100644
 +	}
 +	return 0;
 +}
++
++struct spinlock print_lock;
++
++uint64
++sys_sync_print(void)
++{
++	char str[101];
++	argstr(0, str, 100);
++	acquire(&print_lock);
++	printf("%s\n", str);
++	release(&print_lock);
++	return 0;
++}
 \ No newline at end of file
 diff --git a/user/load.c b/user/load.c
 new file mode 100644
-index 0000000..cc0cb64
+index 0000000..2d1fe48
 --- /dev/null
 +++ b/user/load.c
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,81 @@
 +#include "kernel/types.h"
 +#include "user/user.h"
 +
@@ -288,26 +306,33 @@ index 0000000..cc0cb64
 +    int child_count = atoi(argv[1]);
 +    int allocation_amount = atoi(argv[2]);
 +    int pid;
-+
++    char str[101];
 +    for (int i = 0; i < child_count; i++) {
 +        pid = fork();
 +        
 +        if (pid == 0) {  // Child process
-+            printf("Child is created.\n");
++            strcpy(str, "Child is created.");
++            sync_print(str);
 +            char *mem = (char *) malloc(allocation_amount);
 +            
 +            if (mem == 0) {
-+                printf("Memory allocation failed for child %d\n", i);
++                strcpy(str, "Memory allocation failed for child ");
++                numcat(str, i);
++                sync_print(str);
 +                exit(1);
 +            }
-+            printf("Child allocated %d bytes.\n", allocation_amount);
-+            printf("Child is going to sleep.\n");
-+            // sleep(20);
++            strcpy(str, "Child allocated ");
++            numcat(str, allocation_amount);
++            concat(str, " bytes.");
++            sync_print(str);
++
++            strcpy(str, "Child going to sleep.");
++            sync_print(str);
 +            
 +            int count=0;
 +            for(int j=0; j<1000000; j++){
 +                count=0;
-+                for(int k=0; k<10000; k++){
++                for(int k=0; k<5000; k++){
 +                    count++;
 +                }
 +            }
@@ -320,8 +345,8 @@ index 0000000..cc0cb64
 +            exit(1);
 +        }
 +    }
-+
-+    printf("Parent going to sleep.\n");
++    strcpy(str, "Parent going to sleep.");
++    sync_print(str);
 +    sleep(5*child_count);
 +    printf("Parent wake up.\n");
 +
@@ -375,8 +400,63 @@ index 0000000..1e322ce
 +  exec(nargv[0], nargv);
 +  exit(0);
 +}
+diff --git a/user/ulib.c b/user/ulib.c
+index c7b66c4..f25250b 100644
+--- a/user/ulib.c
++++ b/user/ulib.c
+@@ -106,6 +106,50 @@ atoi(const char *s)
+   return n;
+ }
+ 
++void 
++strrev(char *str)
++{
++	int len = strlen(str);
++	for(int i=0; i<len/2; i++)
++	{
++		char temp = str[i];
++		str[i] = str[len-i-1];
++		str[len-i-1] = temp;
++	}
++}
++
++void
++itoa(char* str, int num)
++{
++	int i=0;
++	while (num>0)
++	{
++		str[i++] = (num%10)+'0';
++		num/=10;
++	}
++	str[i] = 0;
++	strrev(str);
++}
++
++void
++concat(char *dest, char *str)
++{
++	int len = strlen(dest);
++	for(int i=0;; i++)
++	{
++		dest[len+i] = str[i];
++		if(!str[i]) break;
++	}
++}
++
++void 
++numcat(char *dest, int num)
++{
++	char str[11];
++	itoa(str, num);
++	concat(dest, str);
++}
++
+ void*
+ memmove(void *vdst, const void *vsrc, int n)
+ {
 diff --git a/user/user.h b/user/user.h
-index 04013ca..b03c38e 100644
+index 04013ca..5796573 100644
 --- a/user/user.h
 +++ b/user/user.h
 @@ -1,4 +1,5 @@
@@ -385,23 +465,35 @@ index 04013ca..b03c38e 100644
  
  // system calls
  int fork(void);
-@@ -22,6 +23,8 @@ int getpid(void);
+@@ -22,6 +23,9 @@ int getpid(void);
  char* sbrk(int);
  int sleep(int);
  int uptime(void);
 +int trace(int);
 +int info(struct procInfo*);
++int sync_print(const char*);
  
  // ulib.c
  int stat(const char*, struct stat*);
+@@ -37,5 +41,9 @@ void* memset(void*, int, uint);
+ void* malloc(uint);
+ void free(void*);
+ int atoi(const char*);
++void strrev(char *str);
++void itoa(char* str, int num);
++void concat(char *dest, char *str);
++void numcat(char *dest, int num);
+ int memcmp(const void *, const void *, uint);
+ void *memcpy(void *, const void *, uint);
 diff --git a/user/usys.pl b/user/usys.pl
-index 01e426e..ed285e3 100755
+index 01e426e..9980bf8 100755
 --- a/user/usys.pl
 +++ b/user/usys.pl
-@@ -36,3 +36,5 @@ entry("getpid");
+@@ -36,3 +36,6 @@ entry("getpid");
  entry("sbrk");
  entry("sleep");
  entry("uptime");
 +entry("trace");
 +entry("info");
++entry("sync_print");
 \ No newline at end of file
