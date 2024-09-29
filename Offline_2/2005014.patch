@@ -232,10 +232,10 @@ index bc5f356..e8ced89 100644
 +#define SYS_get_history 26
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..c1b2dad 100644
+index 3b4d5bd..f9a557a 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,107 @@ sys_uptime(void)
+@@ -91,3 +91,114 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
@@ -293,6 +293,7 @@ index 3b4d5bd..c1b2dad 100644
 +}
 +
 +struct spinlock print_lock;
++struct spinlock history_lock;
 +
 +uint64
 +sys_sync_print(void)
@@ -314,6 +315,7 @@ index 3b4d5bd..c1b2dad 100644
 +	char str[MAXCMDLEN];
 +	argstr(0, str, MAXCMDLEN);
 +	// printf("<KERNEL> set_history: %s\n", str);
++	acquire(&history_lock);
 +	for(int i=0; i<MAXCMDLEN; i++) {
 +		history[history_index][i] = str[i];
 +		if(str[i] == 0) break;
@@ -322,6 +324,7 @@ index 3b4d5bd..c1b2dad 100644
 +	if(history_count < MAXHIST) {
 +		history_count++;
 +	}
++	release(&history_lock);
 +	return 0;
 +}
 +
@@ -333,14 +336,18 @@ index 3b4d5bd..c1b2dad 100644
 +	char *addr;
 +	argaddr(1, (uint64 *)&addr);
 +	// printf("<KERNEL get> index: %d, pointer: %p\n", index, addr);
++	acquire(&history_lock);
 +	if(index < 0 || index > history_count) {
++		release(&history_lock);
 +		return -1;
 +	}
 +	char *str = history[((history_index - index + MAXHIST) % MAXHIST)];
 +	// printf("<KERNEL> get_history: %s\n", str);
 +	if(copyout(myproc()->pagetable, (uint64) addr, str, strlen(str) + 1) < 0) {
++		release(&history_lock);
 +		return -1;
 +	}
++	release(&history_lock);
 +	return 0;
 +}
 \ No newline at end of file
