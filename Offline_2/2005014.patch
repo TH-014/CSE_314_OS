@@ -1,8 +1,31 @@
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000..7219717
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,8 @@
++{
++    "files.associations": {
++        "types.h": "c",
++        "user.h": "c",
++        "stat.h": "c",
++        "param.h": "c"
++    }
++}
+\ No newline at end of file
 diff --git a/Makefile b/Makefile
-index 62fd0f8..5254050 100644
+index 62fd0f8..9f78f91 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -135,6 +135,7 @@ UPROGS=\
+@@ -128,6 +128,7 @@ UPROGS=\
+ 	$U/_forktest\
+ 	$U/_grep\
+ 	$U/_init\
++	$U/_load\
+ 	$U/_kill\
+ 	$U/_ln\
+ 	$U/_ls\
+@@ -135,6 +136,7 @@ UPROGS=\
  	$U/_rm\
  	$U/_sh\
  	$U/_stressfs\
@@ -22,22 +45,24 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..3d754e5 100644
+index ed65409..e176b31 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
-@@ -101,6 +101,7 @@ extern uint64 sys_unlink(void);
+@@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
  extern uint64 sys_link(void);
  extern uint64 sys_mkdir(void);
  extern uint64 sys_close(void);
 +extern uint64 sys_trace(void);
++extern uint64 sys_info(void);
  
  // An array mapping syscall numbers from syscall.h
  // to the function that handles the system call.
-@@ -126,8 +127,102 @@ static uint64 (*syscalls[])(void) = {
+@@ -126,8 +128,108 @@ static uint64 (*syscalls[])(void) = {
  [SYS_link]    sys_link,
  [SYS_mkdir]   sys_mkdir,
  [SYS_close]   sys_close,
 +[SYS_trace]   sys_trace,
++[SYS_info]    sys_info
  };
  
 +const char *syscallnames[] = {
@@ -63,6 +88,7 @@ index ed65409..3d754e5 100644
 +  [SYS_mkdir]   = "mkdir",
 +  [SYS_close]   = "close",
 +  [SYS_trace]   = "trace",
++  [SYS_info]    = "info"
 +};
 +
 +int num_syscalls = NELEM(syscalls);
@@ -127,6 +153,10 @@ index ed65409..3d754e5 100644
 +		printf("%s", str);
 +		break;
 +
++	case SYS_info:
++		printf("%p", (struct procInfo *) a0);
++		break;
++
 +	default:
 +		printf("unknown syscall\n\n");
 +		break;
@@ -136,7 +166,7 @@ index ed65409..3d754e5 100644
  void
  syscall(void)
  {
-@@ -138,7 +233,19 @@ syscall(void)
+@@ -138,7 +240,19 @@ syscall(void)
    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
      // Use num to lookup the system call function for num, call it,
      // and store its return value in p->trapframe->a0
@@ -157,20 +187,21 @@ index ed65409..3d754e5 100644
      printf("%d %s: unknown sys call %d\n",
              p->pid, p->name, num);
 diff --git a/kernel/syscall.h b/kernel/syscall.h
-index bc5f356..fc22b30 100644
+index bc5f356..35d3b1b 100644
 --- a/kernel/syscall.h
 +++ b/kernel/syscall.h
-@@ -20,3 +20,4 @@
+@@ -20,3 +20,5 @@
  #define SYS_link   19
  #define SYS_mkdir  20
  #define SYS_close  21
 +#define SYS_trace  22
++#define SYS_info   23
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..a2e2b61 100644
+index 3b4d5bd..07bd7f7 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,18 @@ sys_uptime(void)
+@@ -91,3 +91,52 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
@@ -188,6 +219,90 @@ index 3b4d5bd..a2e2b61 100644
 +  struct proc *p = myproc();
 +  p->trace_syscall_number = syscall_number;
 +  return 0;
++}
++
++struct procInfo {
++    int activeProcess;      // # of processes in RUNNABLE and RUNNING state
++    int totalProcess;       // # of total possible processes
++    int memsize;            // in bytes; summation of all active process
++    int totalMemSize;       // in bytes; all available physical Memory
++};
++
++extern struct proc proc[NPROC];
++
++uint64
++sys_info(void)
++{
++    struct procInfo *meminfo;
++	argaddr(0, (uint64 *)&meminfo);
++	struct procInfo newinfo;
++	newinfo.activeProcess = 0;
++	newinfo.totalProcess = NPROC;
++	newinfo.memsize = 0;
++	newinfo.totalMemSize = PHYSTOP - KERNBASE;
++	struct proc *p;
++	for(p = proc; p < &proc[NPROC]; p++) {
++		acquire(&p->lock);
++		if(p->state == RUNNABLE || p->state == RUNNING) {
++			newinfo.activeProcess++;
++			newinfo.memsize += p->sz;
++		}
++		release(&p->lock);
++	}
++	if(copyout(myproc()->pagetable, (uint64) meminfo, (char *)&newinfo, sizeof(struct procInfo)) < 0) {
++		return -1;
++	}
++	return 0;
++}
+\ No newline at end of file
+diff --git a/user/load.c b/user/load.c
+new file mode 100644
+index 0000000..14e801e
+--- /dev/null
++++ b/user/load.c
+@@ -0,0 +1,43 @@
++#include "kernel/param.h"
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++struct procInfo {
++    int activeProcess;      // # of processes in RUNNABLE and RUNNING state
++    int totalProcess;       // # of total possible processes
++    int memsize;            // in bytes; summation of all active process
++    int totalMemSize;       // in bytes; all available physical Memory
++};
++
++int
++main(int argc, char *argv[])
++{
++    if(argc !=3){
++        fprintf(2, "Usage: %s child_count allocation_amount\n", argv[0]);
++        exit(1);
++    }
++    
++    // int child_count = atoi(argv[1]);
++    // int allocation_amount = atoi(argv[2]);
++
++    // for(int i = 0; i < child_count; i++){
++    //     if(fork() == 0){
++    //         for(int j = 0; j < allocation_amount; j++){
++    //             malloc(4096);
++    //         }
++    //         exit(0);
++    //     }
++    // }
++
++    struct procInfo *meminfo = (struct procInfo*) malloc(sizeof(struct procInfo));
++    if(info(meminfo)<0){
++        fprintf(2, "Error: info syscall failed\n");
++        exit(1);
++    }
++    // printf("Userspace meminfo: %p\n", meminfo);
++    printf("Current system information:\n");
++    printf("Processes: %d/%d\n", meminfo->activeProcess, meminfo->totalProcess);
++    printf("RAM: %d/%d (Bytes)\n", meminfo->memsize, meminfo->totalMemSize);
++    exit(0);
 +}
 \ No newline at end of file
 diff --git a/user/trace.c b/user/trace.c
@@ -224,23 +339,32 @@ index 0000000..1e322ce
 +  exit(0);
 +}
 diff --git a/user/user.h b/user/user.h
-index 04013ca..901b55e 100644
+index 04013ca..b03c38e 100644
 --- a/user/user.h
 +++ b/user/user.h
-@@ -22,6 +22,7 @@ int getpid(void);
+@@ -1,4 +1,5 @@
+ struct stat;
++struct procInfo;
+ 
+ // system calls
+ int fork(void);
+@@ -22,6 +23,8 @@ int getpid(void);
  char* sbrk(int);
  int sleep(int);
  int uptime(void);
 +int trace(int);
++int info(struct procInfo*);
  
  // ulib.c
  int stat(const char*, struct stat*);
 diff --git a/user/usys.pl b/user/usys.pl
-index 01e426e..9c97b05 100755
+index 01e426e..ed285e3 100755
 --- a/user/usys.pl
 +++ b/user/usys.pl
-@@ -36,3 +36,4 @@ entry("getpid");
+@@ -36,3 +36,5 @@ entry("getpid");
  entry("sbrk");
  entry("sleep");
  entry("uptime");
 +entry("trace");
++entry("info");
+\ No newline at end of file
