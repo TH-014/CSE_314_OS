@@ -1,15 +1,18 @@
 diff --git a/.vscode/settings.json b/.vscode/settings.json
 new file mode 100644
-index 0000000..7219717
+index 0000000..f9918bf
 --- /dev/null
 +++ b/.vscode/settings.json
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,11 @@
 +{
 +    "files.associations": {
 +        "types.h": "c",
 +        "user.h": "c",
 +        "stat.h": "c",
-+        "param.h": "c"
++        "param.h": "c",
++        "fcntl.h": "c",
++        "spinlock.h": "c",
++        "defs.h": "c"
 +    }
 +}
 \ No newline at end of file
@@ -198,10 +201,10 @@ index bc5f356..35d3b1b 100644
 +#define SYS_info   23
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..07bd7f7 100644
+index 3b4d5bd..243306b 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
-@@ -91,3 +91,52 @@ sys_uptime(void)
+@@ -91,3 +91,55 @@ sys_uptime(void)
    release(&tickslock);
    return xticks;
  }
@@ -249,6 +252,9 @@ index 3b4d5bd..07bd7f7 100644
 +		}
 +		release(&p->lock);
 +	}
++	// printf("KERNEL SPACE system information:\n");
++	// printf("Processes: %d/%d\n", newinfo.activeProcess, newinfo.totalProcess);
++	// printf("RAM: %d/%d (Bytes)\n", newinfo.memsize, newinfo.totalMemSize);
 +	if(copyout(myproc()->pagetable, (uint64) meminfo, (char *)&newinfo, sizeof(struct procInfo)) < 0) {
 +		return -1;
 +	}
@@ -257,13 +263,11 @@ index 3b4d5bd..07bd7f7 100644
 \ No newline at end of file
 diff --git a/user/load.c b/user/load.c
 new file mode 100644
-index 0000000..14e801e
+index 0000000..cc0cb64
 --- /dev/null
 +++ b/user/load.c
-@@ -0,0 +1,43 @@
-+#include "kernel/param.h"
+@@ -0,0 +1,74 @@
 +#include "kernel/types.h"
-+#include "kernel/stat.h"
 +#include "user/user.h"
 +
 +struct procInfo {
@@ -281,17 +285,45 @@ index 0000000..14e801e
 +        exit(1);
 +    }
 +    
-+    // int child_count = atoi(argv[1]);
-+    // int allocation_amount = atoi(argv[2]);
++    int child_count = atoi(argv[1]);
++    int allocation_amount = atoi(argv[2]);
++    int pid;
 +
-+    // for(int i = 0; i < child_count; i++){
-+    //     if(fork() == 0){
-+    //         for(int j = 0; j < allocation_amount; j++){
-+    //             malloc(4096);
-+    //         }
-+    //         exit(0);
-+    //     }
-+    // }
++    for (int i = 0; i < child_count; i++) {
++        pid = fork();
++        
++        if (pid == 0) {  // Child process
++            printf("Child is created.\n");
++            char *mem = (char *) malloc(allocation_amount);
++            
++            if (mem == 0) {
++                printf("Memory allocation failed for child %d\n", i);
++                exit(1);
++            }
++            printf("Child allocated %d bytes.\n", allocation_amount);
++            printf("Child is going to sleep.\n");
++            // sleep(20);
++            
++            int count=0;
++            for(int j=0; j<1000000; j++){
++                count=0;
++                for(int k=0; k<10000; k++){
++                    count++;
++                }
++            }
++            // printf("Child %d is exiting with count: %d\n", i, count);
++            free(mem);
++            exit(0);
++        } 
++        else if (pid < 0) {
++            printf("Fork failed\n");
++            exit(1);
++        }
++    }
++
++    printf("Parent going to sleep.\n");
++    sleep(5*child_count);
++    printf("Parent wake up.\n");
 +
 +    struct procInfo *meminfo = (struct procInfo*) malloc(sizeof(struct procInfo));
 +    if(info(meminfo)<0){
@@ -302,6 +334,11 @@ index 0000000..14e801e
 +    printf("Current system information:\n");
 +    printf("Processes: %d/%d\n", meminfo->activeProcess, meminfo->totalProcess);
 +    printf("RAM: %d/%d (Bytes)\n", meminfo->memsize, meminfo->totalMemSize);
++
++    for (int i = 0; i < child_count; i++) {
++        wait(0);  // wait for the child process to finish
++    }
++
 +    exit(0);
 +}
 \ No newline at end of file
