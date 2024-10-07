@@ -38,6 +38,29 @@ index 62fd0f8..9f78f91 100644
  	$U/_usertests\
  	$U/_grind\
  	$U/_wc\
+diff --git a/kernel/main.c b/kernel/main.c
+index f0d3171..39c2605 100644
+--- a/kernel/main.c
++++ b/kernel/main.c
+@@ -6,6 +6,9 @@
+ 
+ volatile static int started = 0;
+ 
++extern struct spinlock history_lock;
++extern struct spinlock print_lock;
++
+ // start() jumps here in supervisor mode on all CPUs.
+ void
+ main()
+@@ -20,6 +23,8 @@ main()
+     kvminit();       // create kernel page table
+     kvminithart();   // turn on paging
+     procinit();      // process table
++    initlock(&print_lock, "print_lock"); // initialize print_lock
++    initlock(&history_lock, "history_lock"); // initialize history_lock
+     trapinit();      // trap vectors
+     trapinithart();  // install kernel trap vector
+     plicinit();      // set up interrupt controller
 diff --git a/kernel/param.h b/kernel/param.h
 index 6624bff..fbc84e4 100644
 --- a/kernel/param.h
@@ -49,6 +72,18 @@ index 6624bff..fbc84e4 100644
 +#define MAXCMDLEN      100    // maximum Shell command length
 +#define MAXHIST        10    // maximum history length
 \ No newline at end of file
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 58a8a0b..46ce1c6 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -124,6 +124,7 @@ allocproc(void)
+ found:
+   p->pid = allocpid();
+   p->state = USED;
++  p->trace_syscall_number = 0;
+ 
+   // Allocate a trapframe page.
+   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
 diff --git a/kernel/proc.h b/kernel/proc.h
 index d021857..acd416e 100644
 --- a/kernel/proc.h
@@ -61,7 +96,7 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..a6c76ff 100644
+index ed65409..68656f0 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
 @@ -101,6 +101,11 @@ extern uint64 sys_unlink(void);
@@ -167,7 +202,7 @@ index ed65409..a6c76ff 100644
 +		argstr(0, str, 100);
 +		printf("%s, %d", str, (int) a1);
 +		break;
-+	
++
 +	case SYS_mknod:
 +		argstr(0, str, 100);
 +		printf("%s, %hd, %hd", str, (short) a1, (short) a2);
@@ -232,7 +267,7 @@ index bc5f356..e8ced89 100644
 +#define SYS_get_history 26
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..f9a557a 100644
+index 3b4d5bd..25cc37b 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
 @@ -91,3 +91,114 @@ sys_uptime(void)
@@ -292,8 +327,8 @@ index 3b4d5bd..f9a557a 100644
 +	return 0;
 +}
 +
-+struct spinlock print_lock;
 +struct spinlock history_lock;
++struct spinlock print_lock;
 +
 +uint64
 +sys_sync_print(void)
@@ -353,7 +388,7 @@ index 3b4d5bd..f9a557a 100644
 \ No newline at end of file
 diff --git a/user/load.c b/user/load.c
 new file mode 100644
-index 0000000..2d1fe48
+index 0000000..8ac407c
 --- /dev/null
 +++ b/user/load.c
 @@ -0,0 +1,81 @@
@@ -374,19 +409,19 @@ index 0000000..2d1fe48
 +        fprintf(2, "Usage: %s child_count allocation_amount\n", argv[0]);
 +        exit(1);
 +    }
-+    
++
 +    int child_count = atoi(argv[1]);
 +    int allocation_amount = atoi(argv[2]);
 +    int pid;
 +    char str[101];
 +    for (int i = 0; i < child_count; i++) {
 +        pid = fork();
-+        
++
 +        if (pid == 0) {  // Child process
 +            strcpy(str, "Child is created.");
 +            sync_print(str);
 +            char *mem = (char *) malloc(allocation_amount);
-+            
++
 +            if (mem == 0) {
 +                strcpy(str, "Memory allocation failed for child ");
 +                numcat(str, i);
@@ -400,7 +435,7 @@ index 0000000..2d1fe48
 +
 +            strcpy(str, "Child going to sleep.");
 +            sync_print(str);
-+            
++
 +            int count=0;
 +            for(int j=0; j<1000000; j++){
 +                count=0;
@@ -411,7 +446,7 @@ index 0000000..2d1fe48
 +            // printf("Child %d is exiting with count: %d\n", i, count);
 +            free(mem);
 +            exit(0);
-+        } 
++        }
 +        else if (pid < 0) {
 +            printf("Fork failed\n");
 +            exit(1);
@@ -484,7 +519,7 @@ index 836ebcb..ccb0cfe 100644
    exit(0);
 diff --git a/user/trace.c b/user/trace.c
 new file mode 100644
-index 0000000..1e322ce
+index 0000000..3dd9b4c
 --- /dev/null
 +++ b/user/trace.c
 @@ -0,0 +1,27 @@
@@ -508,7 +543,7 @@ index 0000000..1e322ce
 +    fprintf(2, "%s: trace failed\n", argv[0]);
 +    exit(1);
 +  }
-+  
++
 +  for(i = 2; i < argc && i < MAXARG; i++){
 +    nargv[i-2] = argv[i];
 +  }
@@ -516,14 +551,14 @@ index 0000000..1e322ce
 +  exit(0);
 +}
 diff --git a/user/ulib.c b/user/ulib.c
-index c7b66c4..f25250b 100644
+index c7b66c4..1d10ab0 100644
 --- a/user/ulib.c
 +++ b/user/ulib.c
 @@ -106,6 +106,50 @@ atoi(const char *s)
    return n;
  }
  
-+void 
++void
 +strrev(char *str)
 +{
 +	int len = strlen(str);
@@ -559,7 +594,7 @@ index c7b66c4..f25250b 100644
 +	}
 +}
 +
-+void 
++void
 +numcat(char *dest, int num)
 +{
 +	char str[11];
