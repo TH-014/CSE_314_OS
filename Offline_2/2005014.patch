@@ -73,7 +73,7 @@ index 6624bff..fbc84e4 100644
 +#define MAXHIST        10    // maximum history length
 \ No newline at end of file
 diff --git a/kernel/proc.c b/kernel/proc.c
-index 58a8a0b..46ce1c6 100644
+index 58a8a0b..fafd0aa 100644
 --- a/kernel/proc.c
 +++ b/kernel/proc.c
 @@ -124,6 +124,7 @@ allocproc(void)
@@ -84,6 +84,14 @@ index 58a8a0b..46ce1c6 100644
  
    // Allocate a trapframe page.
    if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+@@ -169,6 +170,7 @@ freeproc(struct proc *p)
+   p->killed = 0;
+   p->xstate = 0;
+   p->state = UNUSED;
++  p->trace_syscall_number = 0;
+ }
+ 
+ // Create a user page table for a given process, with no user memory,
 diff --git a/kernel/proc.h b/kernel/proc.h
 index d021857..acd416e 100644
 --- a/kernel/proc.h
@@ -96,7 +104,7 @@ index d021857..acd416e 100644
 +  int trace_syscall_number;    // syscall number to trace
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..68656f0 100644
+index ed65409..f9ebd9c 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
 @@ -101,6 +101,11 @@ extern uint64 sys_unlink(void);
@@ -232,22 +240,20 @@ index ed65409..68656f0 100644
  void
  syscall(void)
  {
-@@ -138,7 +255,19 @@ syscall(void)
+@@ -138,7 +255,17 @@ syscall(void)
    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
      // Use num to lookup the system call function for num, call it,
      // and store its return value in p->trapframe->a0
-+	if(p->trace_syscall_number == num) {
-+		printf("pid: %d, syscall: %s, args: (", p->pid, syscallnames[num]);
-+		print_syscall_args(num);
-+		printf("), return: ");
-+		if(num == SYS_exit)
-+			printf("%d\n", (int) p->trapframe->a0);
-+	}
-+	if(num == SYS_exit)
-+		p->trace_syscall_number = 0;
++    if(p->trace_syscall_number == num) {
++      printf("pid: %d, syscall: %s, args: (", p->pid, syscallnames[num]);
++      print_syscall_args(num);
++      printf("), return: ");
++      if(num == SYS_exit)
++        printf("%d\n", (int) p->trapframe->a0);
++    }
      p->trapframe->a0 = syscalls[num]();
 +    if(p->trace_syscall_number == num) {
-+		printf("%d\n", (int) p->trapframe->a0);
++      printf("%d\n", (int) p->trapframe->a0);
 +    }
    } else {
      printf("%d %s: unknown sys call %d\n",
@@ -551,10 +557,10 @@ index 0000000..3dd9b4c
 +  exit(0);
 +}
 diff --git a/user/ulib.c b/user/ulib.c
-index c7b66c4..1d10ab0 100644
+index c7b66c4..70febff 100644
 --- a/user/ulib.c
 +++ b/user/ulib.c
-@@ -106,6 +106,50 @@ atoi(const char *s)
+@@ -106,6 +106,51 @@ atoi(const char *s)
    return n;
  }
  
@@ -594,6 +600,7 @@ index c7b66c4..1d10ab0 100644
 +	}
 +}
 +
++// concatenate an integer (num) to a string (dest)
 +void
 +numcat(char *dest, int num)
 +{
