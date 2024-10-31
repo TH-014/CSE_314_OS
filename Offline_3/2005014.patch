@@ -1,0 +1,285 @@
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000..8625a96
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,8 @@
++{
++    "files.associations": {
++        "types.h": "c",
++        "param.h": "c",
++        "user.h": "c",
++        "defs.h": "c"
++    }
++}
+\ No newline at end of file
+diff --git a/Makefile b/Makefile
+index 62fd0f8..93771a6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -56,7 +56,7 @@ LD = $(TOOLPREFIX)ld
+ OBJCOPY = $(TOOLPREFIX)objcopy
+ OBJDUMP = $(TOOLPREFIX)objdump
+ 
+-CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -gdwarf-2
++CFLAGS = -Wall -Werror -Og -fno-omit-frame-pointer -ggdb -gdwarf-2 -g3
+ CFLAGS += -MD
+ CFLAGS += -mcmodel=medany
+ # CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
+@@ -139,6 +139,8 @@ UPROGS=\
+ 	$U/_grind\
+ 	$U/_wc\
+ 	$U/_zombie\
++	$U/_dummyproc\
++	$U/_testprocinfo\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+@@ -160,7 +162,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
+ 	then echo "-gdb tcp::$(GDBPORT)"; \
+ 	else echo "-s -p $(GDBPORT)"; fi)
+ ifndef CPUS
+-CPUS := 3
++CPUS := 1
+ endif
+ 
+ QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
+diff --git a/kernel/defs.h b/kernel/defs.h
+index d1b6bb9..be9524b 100644
+--- a/kernel/defs.h
++++ b/kernel/defs.h
+@@ -106,6 +106,8 @@ void            yield(void);
+ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
+ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
+ void            procdump(void);
++void            srand (int);
++int             rand (void);
+ 
+ // swtch.S
+ void            swtch(struct context*, struct context*);
+diff --git a/kernel/main.c b/kernel/main.c
+index f0d3171..70f8205 100644
+--- a/kernel/main.c
++++ b/kernel/main.c
+@@ -41,5 +41,6 @@ main()
+     plicinithart();   // ask PLIC for device interrupts
+   }
+ 
++  srand(14);
+   scheduler();        
+ }
+diff --git a/kernel/param.h b/kernel/param.h
+index 6624bff..3724371 100644
+--- a/kernel/param.h
++++ b/kernel/param.h
+@@ -11,3 +11,27 @@
+ #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
+ #define FSSIZE       2000  // size of file system in blocks
+ #define MAXPATH      128   // maximum file path name
++#define TIME_LIMIT_0 2
++#define TIME_LIMIT_1 4
++#define WAIT_THRESH 6
++#define DEFAULT_TICKETS 10
++
++// Color Codes
++#define COLOR_RESET     "\033[0m"
++#define COLOR_RED       "\033[1;31m"
++#define COLOR_BLUE      "\033[1;34m"
++#define COLOR_GREEN     "\033[1;32m"
++#define COLOR_MAGENTA   "\033[1;35m"
++#define COLOR_YELLOW    "\033[1;33m"
++#define COLOR_WHITE     "\033[1;37m"
++#define COLOR_CYAN      "\033[1;36m"
++
++// Log Macros
++#define LOG_DEMO(fmt, ...) \
++    printf(COLOR_RED "DEMO: " fmt COLOR_RESET, ##__VA_ARGS__)
++#define LOG_PROMO(fmt, ...) \
++    printf(COLOR_BLUE "PROMO: " fmt COLOR_RESET, ##__VA_ARGS__)
++#define LOG_BOOST(fmt, ...) \
++    printf(COLOR_GREEN "BOOST: " fmt COLOR_RESET, ##__VA_ARGS__)
++#define LOG_LOTTERY(fmt, ...) \
++    printf(COLOR_MAGENTA "LOTTERY: " fmt COLOR_RESET, ##__VA_ARGS__)
+\ No newline at end of file
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 58a8a0b..3344fc7 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -686,3 +686,14 @@ procdump(void)
+     printf("\n");
+   }
+ }
++
++// https://stackoverflow.com/questions/11946622/implementation-of-random-number-generator
++static unsigned int seed = 1;
++
++void srand (int newseed) {
++  seed = (unsigned)newseed & 0x7fffffffU;
++}
++int rand (void) {
++  seed = (seed * 1103515245U + 12345U) & 0x7fffffffU;
++  return (int)seed;
++}
+\ No newline at end of file
+diff --git a/kernel/pstat.h b/kernel/pstat.h
+new file mode 100644
+index 0000000..e5daf49
+--- /dev/null
++++ b/kernel/pstat.h
+@@ -0,0 +1,19 @@
++#ifndef _PSTAT_H_
++#define _PSTAT_H_
++#include "param.h"
++#include "types.h"
++
++struct pstat
++{
++    int pid[NPROC];              // the process ID of each process
++    int inuse[NPROC];            // whether this slot of the process table is being used (1 or 0)
++    int inQ[NPROC];              // which queue the process is currently in
++    int waiting_time[NPROC];     // the time each process has spent waiting before being scheduled
++    int running_time[NPROC];     // Number of times the process was scheduled before its time slice was used
++    int times_scheduled[NPROC];  // the total number of times this process was scheduled
++    int tickets_original[NPROC]; // the number of tickets each process originally had
++    int tickets_current[NPROC];  // the number of tickets each process currently has
++    uint queue_ticks[NPROC][2];  // the total number of ticks each process has spent in each queue
++};
++
++#endif // _PSTAT_H_
+\ No newline at end of file
+diff --git a/kernel/syscall.c b/kernel/syscall.c
+index ed65409..ce52e87 100644
+--- a/kernel/syscall.c
++++ b/kernel/syscall.c
+@@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
+ extern uint64 sys_link(void);
+ extern uint64 sys_mkdir(void);
+ extern uint64 sys_close(void);
++extern uint64 sys_settickets(void);
++extern uint64 sys_getpinfo(void);
+ 
+ // An array mapping syscall numbers from syscall.h
+ // to the function that handles the system call.
+@@ -126,6 +128,8 @@ static uint64 (*syscalls[])(void) = {
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_settickets] sys_settickets,
++[SYS_getpinfo] sys_getpinfo,
+ };
+ 
+ void
+diff --git a/kernel/syscall.h b/kernel/syscall.h
+index bc5f356..da165ba 100644
+--- a/kernel/syscall.h
++++ b/kernel/syscall.h
+@@ -20,3 +20,5 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_settickets 22
++#define SYS_getpinfo 23
+\ No newline at end of file
+diff --git a/kernel/sysproc.c b/kernel/sysproc.c
+index 3b4d5bd..44fd8a3 100644
+--- a/kernel/sysproc.c
++++ b/kernel/sysproc.c
+@@ -91,3 +91,21 @@ sys_uptime(void)
+   release(&tickslock);
+   return xticks;
+ }
++
++uint64
++sys_settickets(void)
++{
++  int n;
++  argint(0, &n);
++  // return settickets(n);
++  return 0;
++}
++
++uint64
++sys_getpinfo(void)
++{
++  uint64 p;
++  argaddr(0, &p);
++  // return getpinfo((struct pstat *)p);
++  return 0;
++}
+\ No newline at end of file
+diff --git a/user/dummyproc.c b/user/dummyproc.c
+new file mode 100644
+index 0000000..e0c9760
+--- /dev/null
++++ b/user/dummyproc.c
+@@ -0,0 +1,9 @@
++#include "kernel/types.h"
++#include "kernel/param.h"
++#include "user.h"
++
++int main(int argc, char *argv[])
++{
++    
++    exit(0);
++}
+\ No newline at end of file
+diff --git a/user/testprocinfo.c b/user/testprocinfo.c
+new file mode 100644
+index 0000000..7885fd7
+--- /dev/null
++++ b/user/testprocinfo.c
+@@ -0,0 +1,22 @@
++#include "kernel/types.h"
++#include "kernel/param.h"
++#include "kernel/pstat.h"
++#include "user.h"
++
++int main(int argc, char *argv[])
++{
++    struct pstat st;
++    if (getpinfo(&st) == 0)
++    {
++        printf("PID | In Use | In Q | Waiting Time | Running Time  | # Times Scheduled | Original Tickets | Current Tickets | q0 | q1\n");
++        // for (int i = 0; i < NPROC; i++)
++        // {
++        //     if (st.inuse[i] == 1)
++        //     {
++        //         printf(1, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d %d\n", st.pid[i], st.inuse[i], st.inQ[i], st.waiting_time[i], st.running_time[i], st.times_scheduled[i], st.tickets_original[i], st.tickets_current[i], st.queue_ticks[i][0], st.queue_ticks[i][1]);
++        //     }
++        // }
++        // printf("Hello World\n");
++    }
++    exit(0);
++}
+\ No newline at end of file
+diff --git a/user/user.h b/user/user.h
+index 04013ca..f9f59f4 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -1,4 +1,6 @@
+ struct stat;
++struct pstat;
++
+ 
+ // system calls
+ int fork(void);
+@@ -22,6 +24,8 @@ int getpid(void);
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int settickets(int);
++int getpinfo(struct pstat *);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+diff --git a/user/usys.pl b/user/usys.pl
+index 01e426e..21930eb 100755
+--- a/user/usys.pl
++++ b/user/usys.pl
+@@ -36,3 +36,5 @@ entry("getpid");
+ entry("sbrk");
+ entry("sleep");
+ entry("uptime");
++entry("settickets");
++entry("getpinfo");
+\ No newline at end of file

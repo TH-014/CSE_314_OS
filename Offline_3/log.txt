@@ -1,0 +1,118 @@
+// Ignore the indented lines, those are just for your reference.
+// You can print the spent ticks after every yield for debugging purpose
+
+$ dummyproc 10 1000000000 &;
+$ PARENT: Called with 10 tickets, 1000000000 iters. Parent will exit now.
+        Process 5 has spent 1 ticks in queue 0
+PARENT: Parent with pid 5 exited with status 0
+CHILD: process 6 with 10 tickets started for 1000000000 loops
+Inside Child: PID 6 with 10 tickets ran for 0 loops
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+Inside Child: PID 6 with 10 tickets ran for 100000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+Inside Child: PID 6 with 10 tickets ran for 200000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+Inside Child: PID 6     Process 6 has spent 2 ticks in queue 1
+with 10 tickets ran for 300000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+Inside Child: PID 6 w   Process 6 has spent 2 ticks in queue 1
+ith 10 tickets ran for 400000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+Inside Child: PID 6 with 10 ticket      Process 6 has spent 2 ticks in queue 1
+s ran for 500000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+Inside Child: PID 6 with 10 tick        Process 6 has spent 2 ticks in queue 1
+ets ran for 600000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+Inside Child: PID 6 with 10 tickets ran for 700000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+Inside Child:   Process 6 has spent 2 ticks in queue 1
+ PID 6 with 10 tickets ran for 800000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+Inside Child: PID 6 with 10 tickets ran for 900000000 loops
+Promoted: Process 6 (dummyproc) is interactive, ran for 2 ticks
+        Process 6 has spent 1 ticks in queue 0
+        Process 6 has spent 2 ticks in queue 0
+Demoted: Process 6 (dummyproc) has used up its time slice in queue 0
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+        Process 6 has spent 3 ticks in queue 1
+        Process 6 has spent 4 ticks in queue 1
+        Process 6 has spent 1 ticks in queue 1
+        Process 6 has spent 2 ticks in queue 1
+CHILD: process 6 with 10 tickets ran for 1000000000 loops
