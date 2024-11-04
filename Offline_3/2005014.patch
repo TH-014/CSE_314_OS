@@ -1,15 +1,17 @@
 diff --git a/.vscode/settings.json b/.vscode/settings.json
 new file mode 100644
-index 0000000..8625a96
+index 0000000..7d547ee
 --- /dev/null
 +++ b/.vscode/settings.json
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,10 @@
 +{
 +    "files.associations": {
 +        "types.h": "c",
 +        "param.h": "c",
 +        "user.h": "c",
-+        "defs.h": "c"
++        "defs.h": "c",
++        "pstat.h": "c",
++        "proc.h": "c"
 +    }
 +}
 \ No newline at end of file
@@ -45,15 +47,25 @@ index 62fd0f8..93771a6 100644
  
  QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 diff --git a/kernel/defs.h b/kernel/defs.h
-index d1b6bb9..be9524b 100644
+index d1b6bb9..b4e2da1 100644
 --- a/kernel/defs.h
 +++ b/kernel/defs.h
-@@ -106,6 +106,8 @@ void            yield(void);
+@@ -7,6 +7,7 @@ struct proc;
+ struct spinlock;
+ struct sleeplock;
+ struct stat;
++struct pstat;
+ struct superblock;
+ 
+ // bio.c
+@@ -106,6 +107,10 @@ void            yield(void);
  int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
  int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
  void            procdump(void);
 +void            srand (int);
 +int             rand (void);
++int             settickets(int);
++int             getpinfo(struct pstat *);
  
  // swtch.S
  void            swtch(struct context*, struct context*);
@@ -69,10 +81,10 @@ index f0d3171..70f8205 100644
    scheduler();        
  }
 diff --git a/kernel/param.h b/kernel/param.h
-index 6624bff..3724371 100644
+index 6624bff..a4577f4 100644
 --- a/kernel/param.h
 +++ b/kernel/param.h
-@@ -11,3 +11,27 @@
+@@ -11,3 +11,28 @@
  #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
  #define FSSIZE       2000  // size of file system in blocks
  #define MAXPATH      128   // maximum file path name
@@ -100,12 +112,21 @@ index 6624bff..3724371 100644
 +    printf(COLOR_GREEN "BOOST: " fmt COLOR_RESET, ##__VA_ARGS__)
 +#define LOG_LOTTERY(fmt, ...) \
 +    printf(COLOR_MAGENTA "LOTTERY: " fmt COLOR_RESET, ##__VA_ARGS__)
++    
 \ No newline at end of file
 diff --git a/kernel/proc.c b/kernel/proc.c
-index 58a8a0b..3344fc7 100644
+index 58a8a0b..7d4cd7b 100644
 --- a/kernel/proc.c
 +++ b/kernel/proc.c
-@@ -686,3 +686,14 @@ procdump(void)
+@@ -5,6 +5,7 @@
+ #include "spinlock.h"
+ #include "proc.h"
+ #include "defs.h"
++#include "pstat.h"
+ 
+ struct cpu cpus[NCPU];
+ 
+@@ -686,3 +687,56 @@ procdump(void)
      printf("\n");
    }
  }
@@ -120,7 +141,67 @@ index 58a8a0b..3344fc7 100644
 +  seed = (seed * 1103515245U + 12345U) & 0x7fffffffU;
 +  return (int)seed;
 +}
++
++int settickets(int tickets){
++  struct proc *p = myproc();
++  if(tickets < 1){
++    tickets = DEFAULT_TICKETS;
++  }
++  acquire(&p->lock);
++  p->original_tickets = tickets;
++  p->current_tickets = tickets;
++  release(&p->lock);
++  return 0;
++}
++
++int getpinfo(struct pstat *ret){
++  struct proc *p;
++  struct pstat obj;
++  int i = 0;
++  for(p = proc; p < &proc[NPROC]; p++){
++    acquire(&p->lock);
++    if(p->state != UNUSED){
++      obj.pid[i] = p->pid;
++      obj.inuse[i] = 1;
++      obj.inQ[i] = p->inQ;
++      obj.tickets_original[i] = p->original_tickets;
++      obj.tickets_current[i] = p->current_tickets;
++      obj.queue_ticks[i][0] = p->ticks_in_q0;
++      obj.queue_ticks[i][1] = p->ticks_in_q1;
++      obj.waiting_time[i] = p->waiting_time;
++      obj.waiting_time[i] = p->waiting_time;
++      obj.times_scheduled[i] = p->scheduled_count;
++      i++;
++    }
++    release(&p->lock);
++  }
++  for(; i < NPROC; i++){
++    obj.pid[i] = 0;
++  }
++  if(copyout(myproc()->pagetable, (uint64)ret, (char *)&obj, sizeof(obj)) < 0){
++    return -1;
++  }
++  return 0;
++}
 \ No newline at end of file
+diff --git a/kernel/proc.h b/kernel/proc.h
+index d021857..d539f08 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -104,4 +104,13 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++
++  int inQ;                     // 0->top queue, 1->bottom queue
++  int original_tickets;        // original/initiak number of tickets
++  int current_tickets;         // current number of tickets
++  int waiting_time;            // time spent in the queue
++  int running_time;            // time spent running
++  int scheduled_count;         // number of times scheduled
++  int ticks_in_q0;             // number of ticks spent in queue 0
++  int ticks_in_q1;             // number of ticks spent in queue 1
+ };
 diff --git a/kernel/pstat.h b/kernel/pstat.h
 new file mode 100644
 index 0000000..e5daf49
@@ -181,7 +262,7 @@ index bc5f356..da165ba 100644
 +#define SYS_getpinfo 23
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..44fd8a3 100644
+index 3b4d5bd..54e70d6 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
 @@ -91,3 +91,21 @@ sys_uptime(void)
@@ -194,7 +275,7 @@ index 3b4d5bd..44fd8a3 100644
 +{
 +  int n;
 +  argint(0, &n);
-+  // return settickets(n);
++  return settickets(n);
 +  return 0;
 +}
 +
@@ -203,32 +284,55 @@ index 3b4d5bd..44fd8a3 100644
 +{
 +  uint64 p;
 +  argaddr(0, &p);
-+  // return getpinfo((struct pstat *)p);
++  return getpinfo((struct pstat *)p);
 +  return 0;
 +}
 \ No newline at end of file
 diff --git a/user/dummyproc.c b/user/dummyproc.c
 new file mode 100644
-index 0000000..e0c9760
+index 0000000..fca968d
 --- /dev/null
 +++ b/user/dummyproc.c
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,32 @@
 +#include "kernel/types.h"
 +#include "kernel/param.h"
 +#include "user.h"
 +
 +int main(int argc, char *argv[])
 +{
-+    
-+    exit(0);
++    if (argc < 3) {
++        fprintf(2, "Usage: %s number_of_tickets iteration_limit\n", argv[0]);
++        exit(1);
++    }
++
++    int ticket = atoi(argv[1]);
++    int iteration_limit = atoi(argv[2]);
++    // printf("Iteration limit: %u\n", iteration_limit);
++    if(iteration_limit<1){
++        fprintf(2, "Iteration limit should be between 0 and %u\n", __UINT32_MAX__);
++        exit(1);
++    }
++    if (settickets(ticket) < 0) {
++        fprintf(2, "%s: exec failed\n", argv[0]);
++        exit(1);
++    }
++
++    int pid = fork();
++
++    for (uint32 i = 1; i <= iteration_limit; i++) {
++        if(pid==0 && i%2000==0){
++            sleep(1);
++        }
++    }
++     
 +}
 \ No newline at end of file
 diff --git a/user/testprocinfo.c b/user/testprocinfo.c
 new file mode 100644
-index 0000000..7885fd7
+index 0000000..8dad956
 --- /dev/null
 +++ b/user/testprocinfo.c
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,26 @@
 +#include "kernel/types.h"
 +#include "kernel/param.h"
 +#include "kernel/pstat.h"
@@ -240,14 +344,18 @@ index 0000000..7885fd7
 +    if (getpinfo(&st) == 0)
 +    {
 +        printf("PID | In Use | In Q | Waiting Time | Running Time  | # Times Scheduled | Original Tickets | Current Tickets | q0 | q1\n");
-+        // for (int i = 0; i < NPROC; i++)
-+        // {
-+        //     if (st.inuse[i] == 1)
-+        //     {
-+        //         printf(1, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d %d\n", st.pid[i], st.inuse[i], st.inQ[i], st.waiting_time[i], st.running_time[i], st.times_scheduled[i], st.tickets_original[i], st.tickets_current[i], st.queue_ticks[i][0], st.queue_ticks[i][1]);
-+        //     }
-+        // }
++        for (int i = 0; i < NPROC; i++)
++        {
++            if(st.pid[i] == 0)
++                continue;
++            printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d %d\n", st.pid[i], st.inuse[i], st.inQ[i], st.waiting_time[i], st.running_time[i], st.times_scheduled[i], st.tickets_original[i], st.tickets_current[i], st.queue_ticks[i][0], st.queue_ticks[i][1]);
++        }
 +        // printf("Hello World\n");
++    }
++    else
++    {
++        fprintf(2, "%s: exec failed\n", argv[0]);
++        exit(1);
 +    }
 +    exit(0);
 +}
