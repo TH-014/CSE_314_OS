@@ -51,10 +51,16 @@ plagiarism_penalty="${input_line[10]}"
 
 validate_input() {
     if [ $is_archived != "true" ] && [ $is_archived != "false" ]; then
-        # echo "49"
+        echo "49"
         terminate_with_error
-    elif [ ! -d "$working_directory" ] || [ ! -f "$expected_output_file" ] || [ ! -f "$plagiarism_file" ]; then
-        # echo "52"
+    elif [ ! -d "$working_directory" ]; then
+        echo "52"
+        terminate_with_error
+    elif [ ! -f "$expected_output_file" ]; then
+        echo "55"
+        terminate_with_error
+    elif [ ! -f "$plagiarism_file" ]; then
+        echo "58"
         terminate_with_error
     fi
     #check if allowed_formats are subset of all_formats
