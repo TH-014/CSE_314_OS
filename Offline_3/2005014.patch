@@ -16,7 +16,7 @@ index 0000000..7d547ee
 +}
 \ No newline at end of file
 diff --git a/Makefile b/Makefile
-index 62fd0f8..20285b0 100644
+index 62fd0f8..503451a 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -56,7 +56,7 @@ LD = $(TOOLPREFIX)ld
@@ -38,15 +38,6 @@ index 62fd0f8..20285b0 100644
  
  fs.img: mkfs/mkfs README $(UPROGS)
  	mkfs/mkfs fs.img README $(UPROGS)
-@@ -160,7 +163,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
- 	then echo "-gdb tcp::$(GDBPORT)"; \
- 	else echo "-s -p $(GDBPORT)"; fi)
- ifndef CPUS
--CPUS := 3
-+CPUS := 1
- endif
- 
- QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 diff --git a/kernel/defs.h b/kernel/defs.h
 index d1b6bb9..9b214b2 100644
 --- a/kernel/defs.h
