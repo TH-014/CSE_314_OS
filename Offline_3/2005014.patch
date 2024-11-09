@@ -94,10 +94,10 @@ index f0d3171..3f57514 100644
      started = 1;
    } else {
 diff --git a/kernel/param.h b/kernel/param.h
-index 6624bff..ff1dbb3 100644
+index 6624bff..6b037b8 100644
 --- a/kernel/param.h
 +++ b/kernel/param.h
-@@ -11,3 +11,32 @@
+@@ -11,3 +11,34 @@
  #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
  #define FSSIZE       2000  // size of file system in blocks
  #define MAXPATH      128   // maximum file path name
@@ -129,10 +129,12 @@ index 6624bff..ff1dbb3 100644
 +    printf(COLOR_YELLOW "" fmt COLOR_RESET, ##__VA_ARGS__)
 +#define LOG_2(fmt, ...) \
 +    printf(COLOR_CYAN "" fmt COLOR_RESET, ##__VA_ARGS__)
++#define LOG_3(fmt, ...) \
++    printf(COLOR_WHITE "" fmt COLOR_RESET, ##__VA_ARGS__)
 +    
 \ No newline at end of file
 diff --git a/kernel/proc.c b/kernel/proc.c
-index 58a8a0b..10347df 100644
+index 58a8a0b..4f0d8ec 100644
 --- a/kernel/proc.c
 +++ b/kernel/proc.c
 @@ -5,6 +5,7 @@
@@ -176,11 +178,11 @@ index 58a8a0b..10347df 100644
  {
    struct proc *p;
    struct cpu *c = mycpu();
-+  int rr_index = 0;
++  int rr_index = -1;
  
    c->proc = 0;
    for(;;){
-@@ -454,22 +464,76 @@ scheduler(void)
+@@ -454,22 +464,92 @@ scheduler(void)
      // processes are waiting.
      intr_on();
  
@@ -201,9 +203,14 @@ index 58a8a0b..10347df 100644
 -        c->proc = 0;
 +      if(p->state == RUNNABLE && p->inQ == 0) {
 +        total_ticket += p->current_tickets;
-+      }
-+      release(&p->lock);
-+    }
+       }
++      // else if (p->state != UNUSED)
++      // {
++      //   printf("==LTC<> pid: %d (%s), state: %d, inQ: %d\n", p->pid, p->name, p->state, p->inQ);
++      // }
++      
+       release(&p->lock);
+     }
 +
 +    // reinitialize tickets for each process
 +    if(total_ticket==0)
@@ -215,11 +222,14 @@ index 58a8a0b..10347df 100644
 +        }
 +        release(&p->lock);
 +      }
-+      continue;
++      // continue;
 +    }
 +
 +    int winner = -1, csum=0;
 +    int target = getrand(1, total_ticket);
++    // printf("tot_ticket: %d, target: %d\n", total_ticket, target);
++    if(target==-1)
++      goto round_robin;
 +
 +    for(int i=0; i<NPROC; i++) {
 +      p = &proc[i];
@@ -233,18 +243,23 @@ index 58a8a0b..10347df 100644
 +          p->current_tickets--;
 +          break;
 +        }
-       }
-       release(&p->lock);
-     }
-+
++      }
++      release(&p->lock);
++    }
++  round_robin:
 +    if(winner==-1)
 +    {
++      // printf("==RR== \n");
 +      for(int i=0; i<NPROC; i++) {
 +        rr_index = (rr_index+1)%NPROC;
 +        p = &proc[rr_index];
 +        acquire(&p->lock);
-+        if(p->inQ && p->state == RUNNABLE) {
++        // if(p->state != UNUSED) {
++          // printf("RR: %d, pid: %d (%s), state: %d, inQ: %d\n", rr_index,p->pid, p->name, p->state, p->inQ);
++        // }
++        if(/*p->inQ &&*/ p->state == RUNNABLE) {
 +          winner = rr_index;
++          // printf("RR winner: %d\n", winner);
 +          break;
 +        }
 +        release(&p->lock);
@@ -254,6 +269,9 @@ index 58a8a0b..10347df 100644
 +    // Switch to chosen process.  It is the process's job
 +    // to release its lock and then reacquire it
 +    // before jumping back to us.
++    // printf("winner: %d\n", winner);
++    if(winner==-1)
++      continue;
 +    p = &proc[winner];
 +    p->state = RUNNING;
 +    c->proc = p;
@@ -268,32 +286,33 @@ index 58a8a0b..10347df 100644
    }
  }
  
-@@ -495,6 +559,18 @@ sched(void)
+@@ -495,6 +575,18 @@ sched(void)
    if(intr_get())
      panic("sched interruptible");
  
 +  if(p->was_asleep) {
-+    // LOG_2("Process %d (%s) waking up, ran for %d ticks in queue: %d\n", p->pid, p->name, p->running_time, p->inQ);
++    // LOG_3("Process %d (%s) waking up, ran for %d ticks in queue: %d\n", p->pid, p->name, p->running_time, p->inQ);
 +    p->was_asleep = 0;
 +    if(p->inQ && p->running_time<TIME_LIMIT_1)
 +    {
 +      p->inQ = 0;
-+      p->running_time -= (TIME_LIMIT_1 - TIME_LIMIT_0);
 +      if(p->running_time<0) p->running_time = 0;
 +      if(log_status)
 +        LOG_PROMO("Process %d (%s) ran for %d time ticks, promoted to queue 0\n", p->pid, p->name, p->running_time);
++      p->running_time -= (TIME_LIMIT_1 - TIME_LIMIT_0);
 +    }
 +  }
    intena = mycpu()->intena;
    swtch(&p->context, &mycpu()->context);
    mycpu()->intena = intena;
-@@ -506,9 +582,21 @@ yield(void)
+@@ -506,9 +598,22 @@ yield(void)
  {
    struct proc *p = myproc();
    acquire(&p->lock);
 -  p->state = RUNNABLE;
 -  sched();
 -  release(&p->lock);
++  // printf("===Process %d (%s) ran for %d time ticks===\n", p->pid, p->name, p->running_time);
 +  if(p->running_time<TIME_LIMIT_0 || (p->inQ==1 && p->running_time<TIME_LIMIT_1)) {
 +    release(&p->lock);
 +  }
@@ -312,7 +331,7 @@ index 58a8a0b..10347df 100644
  }
  
  // A fork child's very first scheduling by scheduler()
-@@ -578,6 +666,7 @@ wakeup(void *chan)
+@@ -578,6 +683,7 @@ wakeup(void *chan)
        acquire(&p->lock);
        if(p->state == SLEEPING && p->chan == chan) {
          p->state = RUNNABLE;
@@ -320,7 +339,7 @@ index 58a8a0b..10347df 100644
        }
        release(&p->lock);
      }
-@@ -686,3 +775,82 @@ procdump(void)
+@@ -686,3 +792,83 @@ procdump(void)
      printf("\n");
    }
  }
@@ -345,6 +364,7 @@ index 58a8a0b..10347df 100644
 +}
 +
 +int getrand(int min, int max){
++  if(min > max) return -1;
 +  return (rand() % (max-min+1)) + min;
 +}
 +
@@ -378,7 +398,7 @@ index 58a8a0b..10347df 100644
 +      obj.queue_ticks[i][0] = p->ticks_in_q0;
 +      obj.queue_ticks[i][1] = p->ticks_in_q1;
 +      obj.waiting_time[i] = p->waiting_time;
-+      obj.running_time[i] = p->total_running_time;
++      obj.running_time[i] = p->running_time;
 +      obj.times_scheduled[i] = p->scheduled_count;
 +      i++;
 +    }
@@ -487,15 +507,15 @@ index bc5f356..3426b73 100644
 +#define SYS_setlog 24
 \ No newline at end of file
 diff --git a/kernel/sysproc.c b/kernel/sysproc.c
-index 3b4d5bd..bf832ec 100644
+index 3b4d5bd..3d47968 100644
 --- a/kernel/sysproc.c
 +++ b/kernel/sysproc.c
 @@ -57,6 +57,9 @@ sys_sleep(void)
    argint(0, &n);
    if(n < 0)
      n = 0;
-+  myproc()->inQ = 1;
-+  // LOG_1("Process %d (%s) sleeping for %d ticks\n", myproc()->pid, myproc()->name, n);
++  // myproc()->inQ = 1;
++  // LOG_2("Process %d (%s) going to sleep for %d ticks\n", myproc()->pid, myproc()->name, n);
 +  myproc()->was_asleep = 1;
    acquire(&tickslock);
    ticks0 = ticks;
@@ -533,7 +553,7 @@ index 3b4d5bd..bf832ec 100644
 +}
 \ No newline at end of file
 diff --git a/kernel/trap.c b/kernel/trap.c
-index f21fa26..bcaa9fa 100644
+index f21fa26..4f6fe18 100644
 --- a/kernel/trap.c
 +++ b/kernel/trap.c
 @@ -160,6 +160,9 @@ kerneltrap()
@@ -546,7 +566,7 @@ index f21fa26..bcaa9fa 100644
  void
  clockintr()
  {
-@@ -167,6 +170,31 @@ clockintr()
+@@ -167,6 +170,33 @@ clockintr()
    ticks++;
    wakeup(&ticks);
    release(&tickslock);
@@ -560,6 +580,8 @@ index f21fa26..bcaa9fa 100644
 +      {
 +        proc[i].total_running_time++;
 +        proc[i].running_time++;
++        // if(log_status)
++          // LOG_1("Process %d (%s) has spent %d ticks in queue: %d\n", proc[i].pid, proc[i].name, proc[i].running_time, proc[i].inQ);
 +      }
 +      else if(proc[i].state == RUNNABLE) 
 +      {
