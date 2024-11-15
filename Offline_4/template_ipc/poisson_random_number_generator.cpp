@@ -30,29 +30,32 @@
 #include <random>
 
 // Function to generate a Poisson-distributed random number
-int get_random_number() {
-  // Creates a random device for non-deterministic random number generation
-  std::random_device rd;
-  // Initializes a random number generator using the random device
-  std::mt19937 generator(rd());
+int get_random_number()
+{
+    // Creates a random device for non-deterministic random number generation
+    std::random_device rd;
+    // Initializes a random number generator using the random device
+    std::mt19937 generator(rd());
 
-  // Lambda value for the Poisson distribution
-  double lambda = 10000.234;
+    // Lambda value for the Poisson distribution
+    double lambda = 10000.234;
 
-  // Defines a Poisson distribution with the given lambda
-  std::poisson_distribution<int> poissonDist(lambda);
+    // Defines a Poisson distribution with the given lambda
+    std::poisson_distribution<int> poissonDist(lambda);
 
-  // Generates and returns a random number based on the Poisson distribution
-  return poissonDist(generator);
+    // Generates and returns a random number based on the Poisson distribution
+    return poissonDist(generator);
 }
 
-int main() {
-  // Loop to print 10 Poisson-distributed random numbers
-  for (int i = 0; i < 10; i++) {
-    std::cout << get_random_number()
-              << std::endl; // Output each generated number
-  }
-  return 0;
+int main()
+{
+    // Loop to print 10 Poisson-distributed random numbers
+    for (int i = 0; i < 10; i++)
+    {
+        std::cout << get_random_number()
+                  << std::endl; // Output each generated number
+    }
+    return 0;
 }
 
 /*
