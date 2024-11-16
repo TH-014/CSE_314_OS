@@ -199,9 +199,9 @@ void *visitor_activities(void *arg)
     pthread_mutex_unlock(&step_mutex_3);
     visitor->set_state(ARRIVED_C);
     usleep(gallery1_delay * DELAY_MULTIPLIER);
-    visitor->set_state(ARRIVED_D);
     sem_wait(&corridor_semaphore);
     sem_post(&gallery1_semaphore);
+    visitor->set_state(ARRIVED_D);
     usleep(get_random_number() % (MAX_WALKING_DELAY - MIN_WALKING_DELAY + 1) + MIN_WALKING_DELAY);
     visitor->set_state(ARRIVED_E);
     sem_post(&corridor_semaphore);

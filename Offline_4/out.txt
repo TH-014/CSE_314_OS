@@ -1,99 +1,176 @@
-Visitor 1003 has arrived at A at timestamp 1
-Visitor 2005 has arrived at A at timestamp 1
-Visitor 1002 has arrived at A at timestamp 2
-Visitor 2003 has arrived at A at timestamp 2
-Visitor 1004 has arrived at A at timestamp 5
+Visitor 1008 has arrived at A at timestamp 1
+Visitor 1008 has arrived at B at timestamp 3
+Visitor 1008 is at step 1 at timestamp 3
+Visitor 1001 has arrived at A at timestamp 4
+Visitor 1008 is at step 2 at timestamp 4
 Visitor 2002 has arrived at A at timestamp 5
-Visitor 1003 has arrived at B at timestamp 5
-Visitor 1003 is at step 1 at timestamp 5
-Visitor 2005 has arrived at B at timestamp 5
-Visitor 1001 has arrived at A at timestamp 6
-Visitor 1002 has arrived at B at timestamp 6
-Visitor 2003 has arrived at B at timestamp 6
-Visitor 1003 is at step 2 at timestamp 6
-Visitor 2005 is at step 1 at timestamp 6
-Visitor 2001 has arrived at A at timestamp 7
-Visitor 1003 is at step 3 at timestamp 7
-Visitor 2005 is at step 2 at timestamp 7
-Visitor 1002 is at step 1 at timestamp 7
-Visitor 1003 is at C (entered Gallery 1) at timestamp 8
-Visitor 2005 is at step 3 at timestamp 8
-Visitor 1002 is at step 2 at timestamp 8
-Visitor 2003 is at step 1 at timestamp 8
-Visitor 1004 has arrived at B at timestamp 9
-Visitor 2004 has arrived at A at timestamp 9
-Visitor 2002 has arrived at B at timestamp 9
-Visitor 2005 is at C (entered Gallery 1) at timestamp 9
-Visitor 1002 is at step 3 at timestamp 10
-Visitor 2003 is at step 2 at timestamp 10
-Visitor 1004 is at step 1 at timestamp 10
-Visitor 1001 has arrived at B at timestamp 10
-Visitor 1002 is at C (entered Gallery 1) at timestamp 11
-Visitor 2003 is at step 3 at timestamp 11
-Visitor 1004 is at step 2 at timestamp 11
-Visitor 2002 is at step 1 at timestamp 11
-Visitor 2001 has arrived at B at timestamp 11
-Visitor 1003 is at D (exiting Gallery 1) at timestamp 11
-Visitor 2003 is at C (entered Gallery 1) at timestamp 12
-Visitor 1004 is at step 3 at timestamp 12
-Visitor 2002 is at step 2 at timestamp 12
-Visitor 1001 is at step 1 at timestamp 12
-Visitor 2005 is at D (exiting Gallery 1) at timestamp 13
-Visitor 1004 is at C (entered Gallery 1) at timestamp 13
-Visitor 2002 is at step 3 at timestamp 13
-Visitor 1001 is at step 2 at timestamp 13
-Visitor 2001 is at step 1 at timestamp 13
-Visitor 2004 has arrived at B at timestamp 13
-Visitor 1002 is at D (exiting Gallery 1) at timestamp 14
-Visitor 2002 is at C (entered Gallery 1) at timestamp 14
-Visitor 1001 is at step 3 at timestamp 14
-Visitor 2001 is at step 2 at timestamp 14
-Visitor 2004 is at step 1 at timestamp 14
-Visitor 2003 is at D (exiting Gallery 1) at timestamp 15
-Visitor 1001 is at C (entered Gallery 1) at timestamp 15
-Visitor 2001 is at step 3 at timestamp 15
-Visitor 2004 is at step 2 at timestamp 15
-Visitor 1004 is at D (exiting Gallery 1) at timestamp 16
-Visitor 2001 is at C (entered Gallery 1) at timestamp 16
-Visitor 2004 is at step 3 at timestamp 16
-Visitor 1003 is at E (entered Gallery 2) at timestamp 17
+Visitor 1008 is at step 3 at timestamp 6
+Visitor 1001 has arrived at B at timestamp 6
+Visitor 1001 is at step 1 at timestamp 6
+Visitor 2005 has arrived at A at timestamp 6
+Visitor 1008 is at C (entered Gallery 1) at timestamp 7
+Visitor 1001 is at step 2 at timestamp 7
+Visitor 2002 has arrived at B at timestamp 7
+Visitor 2002 is at step 1 at timestamp 7
+Visitor 1001 is at step 3 at timestamp 8
+Visitor 2004 has arrived at A at timestamp 8
+Visitor 2006 has arrived at A at timestamp 8
+Visitor 2005 has arrived at B at timestamp 8
+Visitor 2002 is at step 2 at timestamp 9
+Visitor 2005 is at step 1 at timestamp 9
+Visitor 1006 has arrived at A at timestamp 9
+Visitor 1001 is at C (entered Gallery 1) at timestamp 9
+Visitor 1009 has arrived at A at timestamp 9
+Visitor 2002 is at step 3 at timestamp 10
+Visitor 2005 is at step 2 at timestamp 10
+Visitor 1004 has arrived at A at timestamp 10
+Visitor 1010 has arrived at A at timestamp 10
+Visitor 2004 has arrived at B at timestamp 10
+Visitor 2004 is at step 1 at timestamp 10
+Visitor 2006 has arrived at B at timestamp 10
+Visitor 2002 is at C (entered Gallery 1) at timestamp 11
+Visitor 2005 is at step 3 at timestamp 11
+Visitor 1002 has arrived at A at timestamp 11
+Visitor 1006 has arrived at B at timestamp 11
+Visitor 1009 has arrived at B at timestamp 11
+Visitor 2004 is at step 2 at timestamp 12
+Visitor 2006 is at step 1 at timestamp 12
+Visitor 2005 is at C (entered Gallery 1) at timestamp 12
+Visitor 1004 has arrived at B at timestamp 12
+Visitor 1010 has arrived at B at timestamp 12
+Visitor 2003 has arrived at A at timestamp 12
+Visitor 2004 is at step 3 at timestamp 13
+Visitor 2006 is at step 2 at timestamp 13
+Visitor 1006 is at step 1 at timestamp 13
+Visitor 1008 is at D (exiting Gallery 1) at timestamp 13
+Visitor 1002 has arrived at B at timestamp 13
+Visitor 1007 has arrived at A at timestamp 13
+Visitor 2004 is at C (entered Gallery 1) at timestamp 14
+Visitor 2006 is at step 3 at timestamp 14
+Visitor 1006 is at step 2 at timestamp 14
+Visitor 1009 is at step 1 at timestamp 14
+Visitor 2003 has arrived at B at timestamp 14
+Visitor 2006 is at C (entered Gallery 1) at timestamp 15
+Visitor 1006 is at step 3 at timestamp 15
+Visitor 1009 is at step 2 at timestamp 15
+Visitor 1004 is at step 1 at timestamp 15
+Visitor 1003 has arrived at A at timestamp 15
+Visitor 1007 has arrived at B at timestamp 15
+Visitor 1001 is at D (exiting Gallery 1) at timestamp 15
+Visitor 1006 is at C (entered Gallery 1) at timestamp 16
+Visitor 1009 is at step 3 at timestamp 16
+Visitor 1004 is at step 2 at timestamp 16
+Visitor 1010 is at step 1 at timestamp 16
+Visitor 1005 has arrived at A at timestamp 16
+Visitor 2001 has arrived at A at timestamp 16
 Visitor 2002 is at D (exiting Gallery 1) at timestamp 17
-Visitor 2004 is at C (entered Gallery 1) at timestamp 17
-Visitor 2005 is at E (entered Gallery 2) at timestamp 18
-Visitor 1001 is at D (exiting Gallery 1) at timestamp 18
-Visitor 2001 is at D (exiting Gallery 1) at timestamp 19
+Visitor 1009 is at C (entered Gallery 1) at timestamp 17
+Visitor 1003 has arrived at B at timestamp 17
+Visitor 1004 is at step 3 at timestamp 17
+Visitor 1010 is at step 2 at timestamp 17
+Visitor 1002 is at step 1 at timestamp 17
+Visitor 1008 is at E (entered Gallery 2) at timestamp 18
+Visitor 2005 is at D (exiting Gallery 1) at timestamp 18
+Visitor 1004 is at C (entered Gallery 1) at timestamp 18
+Visitor 1010 is at step 3 at timestamp 18
+Visitor 1002 is at step 2 at timestamp 18
+Visitor 2003 is at step 1 at timestamp 18
+Visitor 1005 has arrived at B at timestamp 18
+Visitor 2001 has arrived at B at timestamp 18
+Visitor 1001 is at E (entered Gallery 2) at timestamp 20
 Visitor 2004 is at D (exiting Gallery 1) at timestamp 20
-Visitor 1003 is about to enter the photo booth at timestamp 23
-Visitor 1003 is inside the photo booth at timestamp 23
-Visitor 1002 is at E (entered Gallery 2) at timestamp 24
-Visitor 2005 is about to enter the photo booth at timestamp 24
-Visitor 2003 is at E (entered Gallery 2) at timestamp 27
-Visitor 1003 is at F (exiting Gallery 2) at timestamp 28
-Visitor 2005 is inside the photo booth at timestamp 28
-Visitor 1004 is at E (entered Gallery 2) at timestamp 28
-Visitor 2002 is at E (entered Gallery 2) at timestamp 29
-Visitor 1002 is about to enter the photo booth at timestamp 30
-Visitor 1001 is at E (entered Gallery 2) at timestamp 32
-Visitor 2003 is about to enter the photo booth at timestamp 33
-Visitor 2005 is at F (exiting Gallery 2) at timestamp 33
-Visitor 2003 is inside the photo booth at timestamp 33
-Visitor 2001 is at E (entered Gallery 2) at timestamp 33
-Visitor 1004 is about to enter the photo booth at timestamp 34
-Visitor 2004 is at E (entered Gallery 2) at timestamp 34
-Visitor 2002 is about to enter the photo booth at timestamp 35
-Visitor 2003 is at F (exiting Gallery 2) at timestamp 38
-Visitor 2002 is inside the photo booth at timestamp 38
-Visitor 1001 is about to enter the photo booth at timestamp 38
-Visitor 2001 is about to enter the photo booth at timestamp 39
-Visitor 2004 is about to enter the photo booth at timestamp 40
-Visitor 2002 is at F (exiting Gallery 2) at timestamp 43
-Visitor 2001 is inside the photo booth at timestamp 43
-Visitor 2001 is at F (exiting Gallery 2) at timestamp 48
-Visitor 2004 is inside the photo booth at timestamp 48
-Visitor 2004 is at F (exiting Gallery 2) at timestamp 54
-Visitor 1002 is inside the photo booth at timestamp 54
-Visitor 1004 is inside the photo booth at timestamp 54
-Visitor 1001 is inside the photo booth at timestamp 54
-Visitor 1002 is at F (exiting Gallery 2) at timestamp 59
-Visitor 1001 is at F (exiting Gallery 2) at timestamp 59
-Visitor 1004 is at F (exiting Gallery 2) at timestamp 59
+Visitor 1002 is at step 3 at timestamp 20
+Visitor 2003 is at step 2 at timestamp 20
+Visitor 1007 is at step 1 at timestamp 20
+Visitor 1010 is at C (entered Gallery 1) at timestamp 20
+Visitor 2002 is at E (entered Gallery 2) at timestamp 22
+Visitor 2006 is at D (exiting Gallery 1) at timestamp 22
+Visitor 2003 is at step 3 at timestamp 22
+Visitor 1007 is at step 2 at timestamp 22
+Visitor 1002 is at C (entered Gallery 1) at timestamp 22
+Visitor 1003 is at step 1 at timestamp 22
+Visitor 1008 is about to enter the photo booth at timestamp 24
+Visitor 1008 is inside the photo booth at timestamp 24
+Visitor 1001 is about to enter the photo booth at timestamp 26
+Visitor 1001 is inside the photo booth at timestamp 26
+Visitor 1008 is at F (exiting Gallery 2) at timestamp 27
+Visitor 2006 is at E (entered Gallery 2) at timestamp 27
+Visitor 1006 is at D (exiting Gallery 1) at timestamp 27
+Visitor 1007 is at step 3 at timestamp 27
+Visitor 1003 is at step 2 at timestamp 27
+Visitor 2003 is at C (entered Gallery 1) at timestamp 27
+Visitor 1005 is at step 1 at timestamp 27
+Visitor 2005 is at E (entered Gallery 2) at timestamp 28
+Visitor 1009 is at D (exiting Gallery 1) at timestamp 28
+Visitor 2002 is about to enter the photo booth at timestamp 28
+Visitor 1007 is at C (entered Gallery 1) at timestamp 28
+Visitor 1003 is at step 3 at timestamp 28
+Visitor 1005 is at step 2 at timestamp 28
+Visitor 2001 is at step 1 at timestamp 28
+Visitor 1001 is at F (exiting Gallery 2) at timestamp 29
+Visitor 2002 is inside the photo booth at timestamp 29
+Visitor 2004 is at E (entered Gallery 2) at timestamp 30
+Visitor 1004 is at D (exiting Gallery 1) at timestamp 30
+Visitor 1003 is at C (entered Gallery 1) at timestamp 31
+Visitor 1005 is at step 3 at timestamp 31
+Visitor 2001 is at step 2 at timestamp 31
+Visitor 1006 is at E (entered Gallery 2) at timestamp 32
+Visitor 1010 is at D (exiting Gallery 1) at timestamp 32
+Visitor 1005 is at C (entered Gallery 1) at timestamp 32
+Visitor 2001 is at step 3 at timestamp 32
+Visitor 2002 is at F (exiting Gallery 2) at timestamp 33
+Visitor 2006 is about to enter the photo booth at timestamp 33
+Visitor 2006 is inside the photo booth at timestamp 33
+Visitor 2005 is about to enter the photo booth at timestamp 34
+Visitor 2006 is at F (exiting Gallery 2) at timestamp 36
+Visitor 2005 is inside the photo booth at timestamp 36
+Visitor 2004 is about to enter the photo booth at timestamp 36
+Visitor 1010 is at E (entered Gallery 2) at timestamp 37
+Visitor 1002 is at D (exiting Gallery 1) at timestamp 37
+Visitor 2001 is at C (entered Gallery 1) at timestamp 38
+Visitor 1009 is at E (entered Gallery 2) at timestamp 38
+Visitor 2003 is at D (exiting Gallery 1) at timestamp 38
+Visitor 1006 is about to enter the photo booth at timestamp 38
+Visitor 2005 is at F (exiting Gallery 2) at timestamp 39
+Visitor 2004 is inside the photo booth at timestamp 39
+Visitor 1004 is at E (entered Gallery 2) at timestamp 41
+Visitor 1007 is at D (exiting Gallery 1) at timestamp 41
+Visitor 2004 is at F (exiting Gallery 2) at timestamp 42
+Visitor 1006 is inside the photo booth at timestamp 42
+Visitor 1002 is at E (entered Gallery 2) at timestamp 43
+Visitor 1003 is at D (exiting Gallery 1) at timestamp 43
+Visitor 2003 is at E (entered Gallery 2) at timestamp 43
+Visitor 1005 is at D (exiting Gallery 1) at timestamp 43
+Visitor 1010 is about to enter the photo booth at timestamp 44
+Visitor 1010 is inside the photo booth at timestamp 44
+Visitor 1009 is about to enter the photo booth at timestamp 44
+Visitor 1009 is inside the photo booth at timestamp 44
+Visitor 1006 is at F (exiting Gallery 2) at timestamp 46
+Visitor 1007 is at E (entered Gallery 2) at timestamp 46
+Visitor 2001 is at D (exiting Gallery 1) at timestamp 46
+Visitor 1010 is at F (exiting Gallery 2) at timestamp 47
+Visitor 1004 is about to enter the photo booth at timestamp 47
+Visitor 1004 is inside the photo booth at timestamp 47
+Visitor 1009 is at F (exiting Gallery 2) at timestamp 47
+Visitor 1005 is at E (entered Gallery 2) at timestamp 48
+Visitor 1002 is about to enter the photo booth at timestamp 49
+Visitor 1002 is inside the photo booth at timestamp 49
+Visitor 2003 is about to enter the photo booth at timestamp 49
+Visitor 1004 is at F (exiting Gallery 2) at timestamp 50
+Visitor 1002 is at F (exiting Gallery 2) at timestamp 52
+Visitor 2003 is inside the photo booth at timestamp 52
+Visitor 1007 is about to enter the photo booth at timestamp 52
+Visitor 1003 is at E (entered Gallery 2) at timestamp 53
+Visitor 1005 is about to enter the photo booth at timestamp 54
+Visitor 2003 is at F (exiting Gallery 2) at timestamp 55
+Visitor 1007 is inside the photo booth at timestamp 55
+Visitor 1005 is inside the photo booth at timestamp 55
+Visitor 2001 is at E (entered Gallery 2) at timestamp 56
+Visitor 1007 is at F (exiting Gallery 2) at timestamp 58
+Visitor 1005 is at F (exiting Gallery 2) at timestamp 58
+Visitor 1003 is about to enter the photo booth at timestamp 59
+Visitor 1003 is inside the photo booth at timestamp 59
+Visitor 1003 is at F (exiting Gallery 2) at timestamp 62
+Visitor 2001 is about to enter the photo booth at timestamp 62
+Visitor 2001 is inside the photo booth at timestamp 62
+Visitor 2001 is at F (exiting Gallery 2) at timestamp 65
