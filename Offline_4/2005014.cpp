@@ -23,8 +23,10 @@ using namespace std;
 
 sem_t gallery1_semaphore, corridor_semaphore;
 pthread_mutex_t step_mutex_1, step_mutex_2, step_mutex_3, photo_booth_mutex;
+pthread_mutex_t pb_access_mutex, shared_pb_mutex, exclusive_pb_mutex;
 
 int num_of_std_vis, num_of_prm_vis, hallway_ab_delay, gallery1_delay, gallery2_delay, photo_booth_delay;
+int premium_cnt = 0, standard_cnt = 0;
 
 class Visitor;
 void write_output(Visitor &visitor);
@@ -66,7 +68,8 @@ enum visitor_state
     ARRIVED_D,
     ARRIVED_E,
     WAITING_PB,
-    AT_PHOTO_BOOTH
+    AT_PHOTO_BOOTH,
+    ARRIVED_F
 };
 
 class Visitor
@@ -124,9 +127,52 @@ void write_output(Visitor &visitor)
     case AT_PHOTO_BOOTH:
         cout << " is inside the photo booth";
         break;
+    case ARRIVED_F:
+        cout << " is at F (exiting Gallery 2)";
+        break;
     }
     cout << " at timestamp " << get_time() << endl;
     pthread_mutex_unlock(&output_lock);
+}
+
+void gain_shared_access(Visitor *visitor)
+{
+    pthread_mutex_lock(&pb_access_mutex);
+    pthread_mutex_lock(&shared_pb_mutex);
+    standard_cnt++;
+    if (standard_cnt == 1)
+        pthread_mutex_lock(&photo_booth_mutex);
+    pthread_mutex_unlock(&shared_pb_mutex);
+    pthread_mutex_unlock(&pb_access_mutex);
+
+    visitor->set_state(AT_PHOTO_BOOTH);
+    usleep(photo_booth_delay * DELAY_MULTIPLIER);
+
+    pthread_mutex_lock(&shared_pb_mutex);
+    standard_cnt--;
+    if (standard_cnt == 0)
+        pthread_mutex_unlock(&photo_booth_mutex);
+    pthread_mutex_unlock(&shared_pb_mutex);
+}
+
+void gain_exclusive_access(Visitor *visitor)
+{
+    pthread_mutex_lock(&exclusive_pb_mutex);
+    premium_cnt++;
+    if (premium_cnt == 1)
+        pthread_mutex_lock(&pb_access_mutex);
+    pthread_mutex_unlock(&exclusive_pb_mutex);
+    pthread_mutex_lock(&photo_booth_mutex);
+
+    visitor->set_state(AT_PHOTO_BOOTH);
+    usleep(photo_booth_delay * DELAY_MULTIPLIER);
+
+    pthread_mutex_unlock(&photo_booth_mutex);
+    pthread_mutex_lock(&exclusive_pb_mutex);
+    premium_cnt--;
+    if (premium_cnt == 0)
+        pthread_mutex_unlock(&pb_access_mutex);
+    pthread_mutex_unlock(&exclusive_pb_mutex);
 }
 
 void *visitor_activities(void *arg)
@@ -161,6 +207,11 @@ void *visitor_activities(void *arg)
     sem_post(&corridor_semaphore);
     usleep(gallery2_delay * DELAY_MULTIPLIER);
     visitor->set_state(WAITING_PB);
+    if (visitor->is_premium())
+        gain_exclusive_access(visitor);
+    else
+        gain_shared_access(visitor);
+    visitor->set_state(ARRIVED_F);
     return nullptr;
 }
 
@@ -172,6 +223,9 @@ void init()
     pthread_mutex_init(&step_mutex_2, NULL);
     pthread_mutex_init(&step_mutex_3, NULL);
     pthread_mutex_init(&photo_booth_mutex, NULL);
+    pthread_mutex_init(&pb_access_mutex, NULL);
+    pthread_mutex_init(&shared_pb_mutex, NULL);
+    pthread_mutex_init(&exclusive_pb_mutex, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -216,6 +270,9 @@ int main(int argc, char *argv[])
     pthread_mutex_destroy(&step_mutex_2);
     pthread_mutex_destroy(&step_mutex_3);
     pthread_mutex_destroy(&photo_booth_mutex);
+    pthread_mutex_destroy(&pb_access_mutex);
+    pthread_mutex_destroy(&shared_pb_mutex);
+    pthread_mutex_destroy(&exclusive_pb_mutex);
 
     return 0;
 }
