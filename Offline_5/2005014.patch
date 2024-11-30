@@ -326,10 +326,10 @@ index 5c31e87..8f6fbe0 100644
  void
 diff --git a/user/threads.c b/user/threads.c
 new file mode 100644
-index 0000000..2154432
+index 0000000..c017f38
 --- /dev/null
 +++ b/user/threads.c
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,109 @@
 +#include "kernel/types.h"
 +#include "kernel/stat.h"
 +#include "user/user.h"
@@ -339,6 +339,39 @@ index 0000000..2154432
 +    char name[32];
 +    int amount;
 +};
++
++// Mutual exclusion lock.
++struct spinlock {
++  uint locked;       // Is the lock held?
++
++  // For debugging:
++  char *name;        // Name of lock.
++};
++
++void
++initlock(struct spinlock *lk, char *name)
++{
++  lk->name = name;
++  lk->locked = 0;
++}
++
++// Acquire the lock.
++// Loops (spins) until the lock is acquired.
++void
++thread_spin_lock(struct spinlock *lk)
++{
++  while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
++    ;
++  __sync_synchronize();
++}
++
++// Release the lock.
++void
++thread_spin_unlock(struct spinlock *lk)
++{
++  __sync_synchronize();
++  __sync_lock_release(&lk->locked);
++}
 +
 +volatile int total_balance = 0;
 +
@@ -353,6 +386,8 @@ index 0000000..2154432
 +    return i;
 +}
 +
++struct spinlock lock;
++
 +void do_work(void *arg)
 +{
 +    int i;
@@ -364,13 +399,13 @@ index 0000000..2154432
 +    for (i = 0; i < b->amount; i++)
 +    {
 +        // lock and mlock will be implemented by you.
-+        // thread_spin_lock(&lock);
++        thread_spin_lock(&lock);
 +        // thread_mutex_lock(&mlock);
 +        old = total_balance;
 +        delay(100000);
 +        if(old != total_balance)  printf("we will miss an update. old: %d total_balance: %d\n", old, total_balance);
 +        total_balance = old + 1;
-+        // thread_spin_unlock(&lock);
++        thread_spin_unlock(&lock);
 +        //  thread_mutex_lock(&mlock);
 +    }
 +
@@ -386,6 +421,7 @@ index 0000000..2154432
 +    struct balance b1 = {"b1", 3200};
 +    struct balance b2 = {"b2", 2800};
 +
++    initlock(&lock, "balance_lock");
 +    void *s1, *s2;
 +    int thread1, thread2, r1, r2;
 +
