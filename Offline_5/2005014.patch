@@ -23,7 +23,7 @@ index 62fd0f8..0da83ea 100644
  fs.img: mkfs/mkfs README $(UPROGS)
  	mkfs/mkfs fs.img README $(UPROGS)
 diff --git a/kernel/defs.h b/kernel/defs.h
-index d1b6bb9..c34959e 100644
+index d1b6bb9..c910a00 100644
 --- a/kernel/defs.h
 +++ b/kernel/defs.h
 @@ -106,6 +106,9 @@ void            yield(void);
@@ -36,30 +36,178 @@ index d1b6bb9..c34959e 100644
  
  // swtch.S
  void            swtch(struct context*, struct context*);
+@@ -173,6 +176,7 @@ uint64          walkaddr(pagetable_t, uint64);
+ int             copyout(pagetable_t, uint64, char *, uint64);
+ int             copyin(pagetable_t, char *, uint64, uint64);
+ int             copyinstr(pagetable_t, char *, uint64, uint64);
++int             uvm_mirror(pagetable_t, pagetable_t, uint64);
+ 
+ // plic.c
+ void            plicinit(void);
 diff --git a/kernel/proc.c b/kernel/proc.c
-index 58a8a0b..0bb5695 100644
+index 58a8a0b..2843ca8 100644
 --- a/kernel/proc.c
 +++ b/kernel/proc.c
-@@ -686,3 +686,18 @@ procdump(void)
+@@ -124,6 +124,7 @@ allocproc(void)
+ found:
+   p->pid = allocpid();
+   p->state = USED;
++  p->is_thread = 0;
+ 
+   // Allocate a trapframe page.
+   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+@@ -158,7 +159,7 @@ freeproc(struct proc *p)
+   if(p->trapframe)
+     kfree((void*)p->trapframe);
+   p->trapframe = 0;
+-  if(p->pagetable)
++  if(p->pagetable && !p->is_thread)
+     proc_freepagetable(p->pagetable, p->sz);
+   p->pagetable = 0;
+   p->sz = 0;
+@@ -686,3 +687,131 @@ procdump(void)
      printf("\n");
    }
  }
 +
 +int thread_create(void(*fcn)(void*), void *arg, void *stack)
 +{
-+  return 0;
++  int tid;
++  struct proc *np;
++  struct proc *p = myproc();
++
++  // Allocate process.
++  if((np = allocproc()) == 0){
++    return -1;
++  }
++
++  // Copy user memory from parent to child.
++  if(uvm_mirror(p->pagetable, np->pagetable, p->sz) < 0){
++    freeproc(np);
++    release(&np->lock);
++    return -1;
++  }
++  np->sz = p->sz;
++
++  // copy saved user registers.
++  *(np->trapframe) = *(p->trapframe);
++
++  // Cause fork to return 0 in the child.
++  // np->trapframe->a0 = 0;
++  // increment reference counts on open file descriptors.
++  for(int i = 0; i < NOFILE; i++)
++    if(p->ofile[i])
++      np->ofile[i] = filedup(p->ofile[i]);
++  np->cwd = idup(p->cwd);
++
++  safestrcpy(np->name, p->name, sizeof(p->name));
++
++  tid = np->pid;
++
++  release(&np->lock);
++
++  acquire(&wait_lock);
++  np->parent = p;
++  release(&wait_lock);
++
++  acquire(&np->lock);
++  np->is_thread = 1;
++  np->trapframe->a0 = (uint64)arg;
++  np->trapframe->epc = (uint64)fcn;
++  np->trapframe->sp = (uint64)stack + PGSIZE;
++  np->trapframe->ra = 0xffffffff;
++  np->state = RUNNABLE;
++  release(&np->lock);
++
++  return tid;
 +}
 +
 +int thread_join(int thread_id)
 +{
-+  return 0;
++  struct proc *p=0;
++  // int havekids, tid;
++  struct proc *pp = myproc();
++
++  acquire(&wait_lock);
++
++  for(int i=0; i<NPROC; i++){
++    p = &proc[i];
++    if(p->parent == pp && p->is_thread && p->pid == thread_id){
++      break;
++    }
++  }
++  for(;;){
++    // No point waiting if we don't have any threads
++    if(p==0 || killed(pp)){
++      release(&wait_lock);
++      return -1;
++    }
++  
++    acquire(&p->lock);
++    if(p->state == ZOMBIE){
++        freeproc(p);
++        release(&p->lock);
++        release(&wait_lock);
++        return thread_id;
++    }
++    release(&p->lock);
++    
++    // Wait for the thread to exit.
++    sleep(pp, &wait_lock);  //DOC: wait-sleep
++  }
 +}
 +
 +int thread_exit(void)
 +{
-+  return 0;
++  struct proc *p = myproc();
++
++  if(p == initproc)
++    panic("init exiting");
++
++  // Close all open files.
++  for(int fd = 0; fd < NOFILE; fd++){
++    if(p->ofile[fd]){
++      struct file *f = p->ofile[fd];
++      fileclose(f);
++      p->ofile[fd] = 0;
++    }
++  }
++
++  begin_op();
++  iput(p->cwd);
++  end_op();
++  p->cwd = 0;
++
++  acquire(&wait_lock);
++
++  // Give any children to init.
++  reparent(p);
++
++  // Parent might be sleeping in wait().
++  wakeup(p->parent);
++  
++  acquire(&p->lock);
++
++  p->xstate = 0;
++  p->state = ZOMBIE;
++
++  release(&wait_lock);
++
++  // Jump into the scheduler, never to return.
++  sched();
++  panic("zombie exit");
 +}
 \ No newline at end of file
+diff --git a/kernel/proc.h b/kernel/proc.h
+index d021857..ace876d 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -104,4 +104,5 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++  int is_thread;               // 1 if this is a thread
+ };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
 index ed65409..d687ffd 100644
 --- a/kernel/syscall.c
@@ -136,9 +284,49 @@ index 3b4d5bd..fd4f051 100644
 +  return 0;  // not reached
 +}
 \ No newline at end of file
+diff --git a/kernel/vm.c b/kernel/vm.c
+index 5c31e87..8f6fbe0 100644
+--- a/kernel/vm.c
++++ b/kernel/vm.c
+@@ -339,6 +339,35 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+   return -1;
+ }
+ 
++// Given a parent process's page table, map
++// its memory into a child's page table.
++// returns 0 on success, -1 on failure.
++// unmaps on failure.
++int
++uvm_mirror(pagetable_t old, pagetable_t new, uint64 sz)
++{
++  pte_t *pte;
++  uint64 pa, i;
++  uint flags;
++
++  for(i = 0; i < sz; i += PGSIZE){
++    if((pte = walk(old, i, 0)) == 0)
++      panic("uvm_mirror: pte should exist");
++    if((*pte & PTE_V) == 0)
++      panic("uvm_mirror: page not present");
++    pa = PTE2PA(*pte);
++    flags = PTE_FLAGS(*pte);
++    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
++      goto err;
++    }
++  }
++  return 0;
++
++ err:
++  uvmunmap(new, 0, i / PGSIZE, 1);
++  return -1;
++}
++
+ // mark a PTE invalid for user access.
+ // used by exec for the user stack guard page.
+ void
 diff --git a/user/threads.c b/user/threads.c
 new file mode 100644
-index 0000000..345e3b5
+index 0000000..2154432
 --- /dev/null
 +++ b/user/threads.c
 @@ -0,0 +1,73 @@
@@ -180,7 +368,7 @@ index 0000000..345e3b5
 +        // thread_mutex_lock(&mlock);
 +        old = total_balance;
 +        delay(100000);
-+        // if(old != total_balance)  printf("we will miss an update. old: %d total_balance: %d\n", old, total_balance);
++        if(old != total_balance)  printf("we will miss an update. old: %d total_balance: %d\n", old, total_balance);
 +        total_balance = old + 1;
 +        // thread_spin_unlock(&lock);
 +        //  thread_mutex_lock(&mlock);
@@ -217,15 +405,15 @@ index 0000000..345e3b5
 +}
 \ No newline at end of file
 diff --git a/user/user.h b/user/user.h
-index 04013ca..d96d6bf 100644
+index 04013ca..657e34e 100644
 --- a/user/user.h
 +++ b/user/user.h
 @@ -22,6 +22,9 @@ int getpid(void);
  char* sbrk(int);
  int sleep(int);
  int uptime(void);
-+int thread_create(void(*fcn)(void*), void *arg, void*stack);
-+int thread_join(int thread_id);
++int thread_create(void(*fcn)(void*), void *, void*);
++int thread_join(int);
 +void thread_exit(void);
  
  // ulib.c
