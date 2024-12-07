@@ -48,7 +48,7 @@ index d1b6bb9..bc1bd62 100644
  // plic.c
  void            plicinit(void);
 diff --git a/kernel/proc.c b/kernel/proc.c
-index 58a8a0b..0634b57 100644
+index 58a8a0b..e2461e0 100644
 --- a/kernel/proc.c
 +++ b/kernel/proc.c
 @@ -9,12 +9,16 @@
@@ -122,13 +122,18 @@ index 58a8a0b..0634b57 100644
  
    // Allocate a trapframe page.
    if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-@@ -158,11 +181,12 @@ freeproc(struct proc *p)
+@@ -158,11 +181,17 @@ freeproc(struct proc *p)
    if(p->trapframe)
      kfree((void*)p->trapframe);
    p->trapframe = 0;
 -  if(p->pagetable)
 +  if(p->pagetable && !p->is_thread)
      proc_freepagetable(p->pagetable, p->sz);
++  else if (p->pagetable)
++  {
++    uvmunmap(p->pagetable, TRAMPOLINE, 1, 0);
++    uvmunmap(p->pagetable, TRAPFRAME, 1, 0);
++  }
    p->pagetable = 0;
    p->sz = 0;
    p->pid = 0;
@@ -136,11 +141,11 @@ index 58a8a0b..0634b57 100644
    p->parent = 0;
    p->name[0] = 0;
    p->chan = 0;
-@@ -259,18 +283,61 @@ userinit(void)
+@@ -259,18 +288,61 @@ userinit(void)
  int
  growproc(int n)
  {
-+  printf("<-----------------growproc called by proc: %d------------------->\n", myproc()->pid);
++  // printf("<-----------------growproc called by proc: %d------------------->\n", myproc()->pid);
    uint64 sz;
    struct proc *p = myproc();
 +  acquire(p->memlock);
@@ -202,7 +207,7 @@ index 58a8a0b..0634b57 100644
    return 0;
  }
  
-@@ -686,3 +753,135 @@ procdump(void)
+@@ -686,3 +758,132 @@ procdump(void)
      printf("\n");
    }
  }
@@ -301,9 +306,6 @@ index 58a8a0b..0634b57 100644
 +int thread_exit(void)
 +{
 +  struct proc *p = myproc();
-+
-+  if(p == initproc)
-+    panic("init exiting");
 +
 +  // Close all open files.
 +  for(int fd = 0; fd < NOFILE; fd++){
